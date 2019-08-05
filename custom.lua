@@ -945,7 +945,7 @@ Client:on('messageCreate', function(message)
 	local ItWasCommand = false
 	
 	--если человек пишет два идентичных сообщеняи подряд, то его второе сообщение удаляется
-	if LastMsg[channel] then
+	if message.content ~= "" and LastMsg[channel] then
 		if LastMsg[channel].user == user and LastMsg[channel].msg == msg then 
 			message:delete()
 			deleted = true
