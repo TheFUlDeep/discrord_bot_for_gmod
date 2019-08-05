@@ -7,7 +7,7 @@ local sleep = timer.sleep
 local querystring = require('querystring')
 --local utf8 = require("utf8")
 --print(utf8)
---TODO при сохранении данных добавить еще вначале айди сервера, чтобы бот был мультисерверным
+
 
 
 --package.path = package.path .. "C:\\Same\\DiscordBot\\lua_modules\\?.lua;"
@@ -15,11 +15,6 @@ local querystring = require('querystring')
 --print(package.path) -- where .lua files are searched for
 --print(package.cpath)
 --local socket require("socket")
-
-local BotSettings = {
-	['Token'] = "Bot".."your token";
-	['Prefix'] = ";";
-}
 
 local BIGRUS = {"А","Б","В","Г","Д","Е","Ё","Ж","З","И","Й","К","Л","М","Н","О","П","Р","С","Т","У","Ф","Х","Ц","Ч","Ш","Щ","Ъ","Ы","Ь","Э","Ю","Я"}
 local smallrus = {"а","б","в","г","д","е","ё","ж","з","и","й","к","л","м","н","о","п","р","с","т","у","ф","х","ц","ч","ш","щ","ъ","ы","ь","э","ю","я"}
@@ -97,6 +92,11 @@ local function fileread(file)
 	return data
 end
 
+local BotSettings = {
+	['Token'] = "Bot "..(fileread("token.txt") and fileread("token.txt") or "");
+	['Prefix'] = ";";
+}
+
 local function PrintTable(tbl,sdvig)
 	if not sdvig then sdvig = "" end
 	for k,v in pairs(tbl) do
@@ -148,7 +148,7 @@ local function HTTPGET(ip,path,port,OnResponse,OnError)
 	req:done()
 end
 
-local WebServerIP = "your web-server ip"
+local WebServerIP = "212.22.77.19"
 
 local BansTBL = {}
 local RanksTBL = {}
@@ -180,7 +180,7 @@ local function GetRanksBansFromWebServer()
 end
 GetRanksBansFromWebServer()
 
-local function CheckRank(message,steamid)
+local function CheckRank(message,steamid) --TODO добавить поис ника
 	GetRanksBansFromWebServer()
 	sleep(1000)
 	if not steamid or steamid == "" then return end
@@ -285,67 +285,6 @@ local function SetRank(message,data)
 	)
 end
 
-local RanksTBL2 = {}
-
-local function GetRanksBansFromWebServer2()
-	HTTPGET(
-		WebServerIP,
-		"/metrostroi/sync/ranksmetadmin/",
-		nil,
-		function(body)  
-			RanksTBL2 = json.decode(body)
-		end,
-		function(error)
-			print("HTTP ERROR "..error)
-		end
-	)
-end
-GetRanksBansFromWebServer2()
-
-local function SetRank2(message,data)
-	GetRanksBansFromWebServer2()
-	sleep(1000)
-	if not data or data == "" then table.insert(WatNeedToSend,1,{message.channel,"Неверный SteamID."}) return end
-	local start = string.find(data," ")
-	if not start then table.insert(WatNeedToSend,1,{message.channel,"Не указана длительность."}) return end
-	local strsub1 = string.sub(data,1,start - 1)
-	if not strsub1:find("STEAM_") then table.insert(WatNeedToSend,1,{message.channel,"Неверный SteamID."}) return end
-	local start2 = string.find(data," ",start + 1)
-	local strsub2 = string.sub(data,start + 1,start2 and start2 - 1)
-	--if not tonumber(strsub2) then table.insert(WatNeedToSend,1,{message.channel,"Неправильный формат длительности."}) return end
-	if strsub2 == "0" then strsub2 = "perma" end
-	local strsub3 = not start2 and "console" or string.sub(data,start2 + 1)
-	--if strsub2 ~= "operator" and strsub2 ~= "admin" and strsub2 ~= "user" and strsub2 ~= "tsar" and strsub2 ~= "zamtsar" and strsub2 ~= "superadmin" then message.channel:send("Нельзя установить такую роль.") return end
-	HTTPPOST(
-		WebServerIP,
-		"/metrostroi/sync/ranksmetadmin/",
-		nil,
-		{SteamID = strsub1,Rank = strsub2,Nick = RanksTBL2 and RanksTBL2[strsub1] and RanksTBL2[strsub1].Nick or "Unknown",Reason = strsub3}--,
-		--function() table.insert(WatNeedToSend,1,{message.channel,"Игроку "..strsub1.." установлен ранг "..strsub2}) end,
-		--function(error) table.insert(WatNeedToSend,1,{message.channel,"HTTP ERROR "..error}) end
-	)
-end
-
-local function CheckRank2(message,steamid)
-	GetRanksBansFromWebServer2()
-	sleep(1000)
-	if not steamid or steamid == "" then return end
-	HTTPGET(
-		WebServerIP,
-		"/metrostroi/sync/ranksmetadmin/?SteamID="..steamid,
-		nil,
-		function(body)  
-			if not body or body == "" then table.insert(WatNeedToSend,1,{message.channel,"ничего не найдено"}) return end
-			local tbl = json.decode(body)
-			if not tbl or TableCount(tbl) < 1 then table.insert(WatNeedToSend,1,{message.channel,"ничего не найдено"}) return end
-			table.insert(WatNeedToSend,1,{message.channel,"Информация о "..steamid..". Последний ник на сервере: "..tbl.Nick..". Ранг: "..tbl.Rank..(tbl.Reason and ". Причина: "..tbl.Reason.."." or ".")})
-		end,
-		function(error)
-			table.insert(WatNeedToSend,1,{message.channel,"HTTP ERROR "..error})
-		end
-	)
-end
-
 local function SetBan(message,data)
 	GetRanksBansFromWebServer()
 	sleep(1000)
@@ -438,25 +377,27 @@ local function GetTop(channeltbl,value,all,nofield)
 	return top
 end
 
-local MsgStats = fileread("C:\\Same\\DiscordBot\\MsgStats.txt") and json.decode(fileread("C:\\Same\\DiscordBot\\MsgStats.txt")) or {}
+local MsgStats = fileread("MsgStats.txt") and json.decode(fileread("MsgStats.txt")) or {}
 local LastMsg = fileread("O:\\LastMsg.txt") and json.decode(fileread("O:\\LastMsg.txt")) or {}	-- channel, msg, user
 
-local function GenerateChatUsersTbl()
+local function GenerateChatUsersTbl(GuildID)
 	local usertstbl = {}
-	for k,v in pairs(MsgStats) do
-		for k1,v1 in pairs(v) do
-			if not usertstbl[k1] then usertstbl[k1] = {} end
-			if not usertstbl[k1]["all"] then usertstbl[k1]["all"] = 0 end
-			if not usertstbl[k1]["notall"] then usertstbl[k1]["notall"] = 0 end
-			if v1["all"] then usertstbl[k1]["all"] = usertstbl[k1]["all"] + v1["all"] end
-			if v1["notall"] then usertstbl[k1]["notall"] = usertstbl[k1]["notall"] + v1["notall"] end
+	if GuildID and MsgStats[GuildID] then
+		for k,v in pairs(MsgStats[GuildID]) do
+			for k1,v1 in pairs(v) do
+				if not usertstbl[k1] then usertstbl[k1] = {} end
+				if not usertstbl[k1]["all"] then usertstbl[k1]["all"] = 0 end
+				if not usertstbl[k1]["notall"] then usertstbl[k1]["notall"] = 0 end
+				if v1["all"] then usertstbl[k1]["all"] = usertstbl[k1]["all"] + v1["all"] end
+				if v1["notall"] then usertstbl[k1]["notall"] = usertstbl[k1]["notall"] + v1["notall"] end
+			end
 		end
 	end
 	return usertstbl
 end
 
-local function MsgsByUserEverywhere(usermentionstring)
-	local usertstbl = GenerateChatUsersTbl()
+local function MsgsByUserEverywhere(usermentionstring,GuildID)
+	local usertstbl = GenerateChatUsersTbl(GuildID)
 	
 	local topall = GetTop(usertstbl,usertstbl[usermentionstring]["all"],true)
 	local topNotall = GetTop(usertstbl,usertstbl[usermentionstring]["notall"])
@@ -464,13 +405,15 @@ local function MsgsByUserEverywhere(usermentionstring)
 	return usertstbl[usermentionstring]["all"], usertstbl[usermentionstring]["notall"], topall, topNotall, AllChatters
 end
 
-local mentionedUsers = fileread("C:\\Same\\DiscordBot\\mentionedUsers.txt") and json.decode(fileread("C:\\Same\\DiscordBot\\mentionedUsers.txt")) or {}
+local mentionedUsers = fileread("mentionedUsers.txt") and json.decode(fileread("mentionedUsers.txt")) or {}
 
-local function GenerateMentionsUsersTbl()
+local function GenerateMentionsUsersTbl(GuildID)
 	local mentionsuserstbl = {}
-	for k,v in pairs(mentionedUsers) do
-		for k1,v1 in pairs(v) do
-			if not mentionsuserstbl[k1] then mentionsuserstbl[k1] = v1 else mentionsuserstbl[k1] = mentionsuserstbl[k1] + v1 end
+	if GuildID and mentionedUsers[GuildID] then
+		for k,v in pairs(mentionedUsers[GuildID]) do
+			for k1,v1 in pairs(v) do
+				if not mentionsuserstbl[k1] then mentionsuserstbl[k1] = v1 else mentionsuserstbl[k1] = mentionsuserstbl[k1] + v1 end
+			end
 		end
 	end
 	return mentionsuserstbl
@@ -481,32 +424,34 @@ local function GetStat(message,usermentionstring)
 	local str = ""
 	if not usermentionstring:find("%d") then usermentionstring = message.author.mentionString end
 	usermentionstring = string.gsub(usermentionstring,"!","")
-	for k,v in pairs(MsgStats) do
-		local TblSize = TableCount(v)
-		for k1,v1 in pairs(v) do
-			if usermentionstring:find(k1) then
-				if not FirstMessagePrinted then
-					--message.channel:send("Информация об игроке "..k1)
-					str = str.."Информация об игроке "..k1
-					FirstMessagePrinted = true
-				end
-				str = str.."\nКанал "..k..":\n"
-				for k2,v2 in pairs(v1) do
-					if k2 == "all" then
-						--message.channel:send("Канал: "..k..". Сообщений всего: "..v2..". Топ "..GetTop(v,v2,all).."/"..TblSize)
-						str = str.."Сообщений всего: "..v2..". Топ "..GetTop(v,v2,true).."/"..TblSize.."\n"
-					else
-						--message.channel:send("Канал: "..k..". Сообщений не подряд: "..v2..". Топ "..GetTop(v,v2).."/"..TblSize)
-						str = str.."Сообщений не подряд: "..v2..". Топ "..GetTop(v,v2).."/"..TblSize.."\n"
+	if MsgStats[message.guild.id] then
+		for k,v in pairs(MsgStats[message.guild.id]) do
+			local TblSize = TableCount(v)
+			for k1,v1 in pairs(v) do
+				if usermentionstring:find(k1) then
+					if not FirstMessagePrinted then
+						--message.channel:send("Информация об игроке "..k1)
+						str = str.."Информация об игроке "..k1
+						FirstMessagePrinted = true
 					end
-				end
-				--filewrite("C:\\Same\\DiscordBot\\test.txt",json.encode(mentionedUsers))
-				if mentionedUsers[k] then
-					local mentionedN = mentionedUsers[k][k1] or 0
-					local top = mentionedUsers[k][k1] and GetTop(mentionedUsers[k],mentionedN,nil,true) or 0
-					str = str.."Упоминаний: "..mentionedN..". Топ "..top.."/"..TableCount(mentionedUsers[k]).."\n"
-				else
-					str = str.."Упоминаний: 0. Топ 0/0\n"
+					str = str.."\nКанал "..k..":\n"
+					for k2,v2 in pairs(v1) do
+						if k2 == "all" then
+							--message.channel:send("Канал: "..k..". Сообщений всего: "..v2..". Топ "..GetTop(v,v2,all).."/"..TblSize)
+							str = str.."Сообщений всего: "..v2..". Топ "..GetTop(v,v2,true).."/"..TblSize.."\n"
+						else
+							--message.channel:send("Канал: "..k..". Сообщений не подряд: "..v2..". Топ "..GetTop(v,v2).."/"..TblSize)
+							str = str.."Сообщений не подряд: "..v2..". Топ "..GetTop(v,v2).."/"..TblSize.."\n"
+						end
+					end
+					--filewrite("test.txt",json.encode(mentionedUsers))
+					if mentionedUsers[message.guild.id] and mentionedUsers[message.guild.id][k] then
+						local mentionedN = mentionedUsers[message.guild.id][k][k1] or 0
+						local top = mentionedUsers[message.guild.id][k][k1] and GetTop(mentionedUsers[message.guild.id][k],mentionedN,nil,true) or 0
+						str = str.."Упоминаний: "..mentionedN..". Топ "..top.."/"..TableCount(mentionedUsers[message.guild.id][k]).."\n"
+					else
+						str = str.."Упоминаний: 0. Топ 0/0\n"
+					end
 				end
 			end
 		end
@@ -514,11 +459,11 @@ local function GetStat(message,usermentionstring)
 	if not FirstMessagePrinted or str == "" then 
 		message.channel:send("Информация о "..usermentionstring.." отсутствует.") 
 	else
-		local AllMsgsAll, AllMsgsNotAll, TopAll, TopNotAll, AllChatters = MsgsByUserEverywhere(usermentionstring)
+		local AllMsgsAll, AllMsgsNotAll, TopAll, TopNotAll, AllChatters = MsgsByUserEverywhere(usermentionstring,message.guild.id)
 		str = str.."\nСообщений всего: "..AllMsgsAll..". Топ "..TopAll.."/"..AllChatters.."\nСообщений всего не подряд: "..AllMsgsNotAll..". Топ "..TopNotAll.."/"..AllChatters.."\n"
-		local mentionsusers = GenerateMentionsUsersTbl()
+		local mentionsusers = GenerateMentionsUsersTbl(message.guild.id)
 		local mentionsN = mentionsusers[usermentionstring] or 0
-		--filewrite("C:\\Same\\DiscordBot\\test.txt",mentionsusers[usermentionstring])
+		--filewrite("test.txt",mentionsusers[usermentionstring])
 		local top = mentionsusers[usermentionstring] and GetTop(mentionsusers,mentionsN,nil,true) or 0
 		str = str.."Упоминаний всего: "..mentionsN..". Топ "..top.."/"..TableCount(mentionsusers)
 		Send(message.channel,str)
@@ -563,8 +508,6 @@ local function FindInTable(tbl,value)
 	return false
 end
 
---TODO получить стимайди из профиля юзера
-
 local function ConvertDataToTwoArgs(data)
 	if string.sub(data,1,2) ~= "[[" then return nil end
 	if not string.sub(data,4):find("]]") then return nil end
@@ -582,7 +525,7 @@ local function ConvertDataToTwoArgs(data)
 	return arg1,arg2
 end
 
-local TriggersPrintTbl = fileread("C:\\Same\\DiscordBot\\TriggersPrintTbl.txt") and json.decode(fileread("C:\\Same\\DiscordBot\\TriggersPrintTbl.txt")) or {}
+local TriggersPrintTbl = fileread("TriggersPrintTbl.txt") and json.decode(fileread("TriggersPrintTbl.txt")) or {}
 
 local function AddChatTrigger(message,data)
 	local arg1,arg2 = ConvertDataToTwoArgs(data)
@@ -592,10 +535,11 @@ local function AddChatTrigger(message,data)
 	end
 	arg1 = bigrustosmall(arg1)
 	arg2 = bigrustosmall(arg2)
-	if TriggersPrintTbl[arg1] and FindInTable(TriggersPrintTbl[arg1],arg2) then message.channel:send("Данный триггер уже существует.") end
-	if not TriggersPrintTbl[arg1] then TriggersPrintTbl[arg1] = {} end
-	table.insert(TriggersPrintTbl[arg1],1,arg2)
-	filewrite("C:\\Same\\DiscordBot\\TriggersPrintTbl.txt",json.encode(TriggersPrintTbl))
+	if TriggersPrintTbl[message.guild.id] and TriggersPrintTbl[message.guild.id][arg1] and FindInTable(TriggersPrintTbl[message.guild.id][arg1],arg2) then message.channel:send("Данный триггер уже существует.") end
+	if not TriggersPrintTbl[message.guild.id] then TriggersPrintTbl[message.guild.id] = {} end
+	if not TriggersPrintTbl[message.guild.id][arg1] then TriggersPrintTbl[message.guild.id][arg1] = {} end
+	table.insert(TriggersPrintTbl[message.guild.id][arg1],1,arg2)
+	filewrite("TriggersPrintTbl.txt",json.encode(TriggersPrintTbl))
 	message.channel:send("Чат-триггер успешно добавлен.")
 end
 
@@ -615,30 +559,32 @@ end
 local function RemoveChatTrigger(message,data)
 	arg1,arg2 = ConvertDataToTwoArgs(data)
 	if not arg1 then message.channel:send('Команда введена некорректно. Приер: `!удалить чат-триггер [[сергей]]` или `!удалить чат-триггер [[сергей]] [[лох]]`.') return end
-	if not TriggersPrintTbl[arg1] then message.channel:send("Данного чат-триггера не существует") return end
+	if not TriggersPrintTbl[message.guild.id] or not TriggersPrintTbl[message.guild.id][arg1] then message.channel:send("Данного чат-триггера не существует") return end
 	if arg2 then
-		local FounArg2 = FindInTable(TriggersPrintTbl[arg1],arg2)
+		local FounArg2 = FindInTable(TriggersPrintTbl[message.guild.id][arg1],arg2)
 		if not FounArg2 then 
 			message.channel:send("Данного чат-триггера не существует.") 
 			return
 		else
-			TriggersPrintTbl[arg1][FounArg2] = ""
-			NormirTable(TriggersPrintTbl[arg1])
-			filewrite("C:\\Same\\DiscordBot\\TriggersPrintTbl.txt",json.encode(TriggersPrintTbl))
+			TriggersPrintTbl[message.guild.id][arg1][FounArg2] = ""
+			NormirTable(TriggersPrintTbl[message.guild.id][arg1])
+			filewrite("TriggersPrintTbl.txt",json.encode(TriggersPrintTbl))
 			message.channel:send("Чат-триггер был успешно удален.")
 		end
 	else 
-		TriggersPrintTbl[arg1] = nil
-		filewrite("C:\\Same\\DiscordBot\\TriggersPrintTbl.txt",json.encode(TriggersPrintTbl))
+		TriggersPrintTbl[message.guild.id][arg1] = nil
+		filewrite("TriggersPrintTbl.txt",json.encode(TriggersPrintTbl))
 		message.channel:send("Чат-триггеры были успешно удалены.") 
 	end
 end
 
 local function ShowChatTriggers(message,a)
 	local str = ""
-	for k,v in pairs(TriggersPrintTbl) do
-		str = str..'Триггеры на "'..k..'": '
-		str = str..json.encode(v).."\n"
+	if TriggersPrintTbl[message.guild.id] then
+		for k,v in pairs(TriggersPrintTbl[message.guild.id]) do
+			str = str..'Триггеры на "'..k..'": '
+			str = str..json.encode(v).."\n"
+		end
 	end
 	--str = str.."```"
 	--message.channel:send(str)
@@ -699,19 +645,19 @@ local function GetTopOne(tbl,all,nofield)
 	return maxtbl
 end
 
-local function GetAllMessagedAndMentionsCountInChannel(mentionString)
+local function GetAllMessagedAndMentionsCountInChannel(mentionString,GuildID)
 	local all = 0
 	local notall = 0
-	if MsgStats[mentionString] then
-		for k,v in pairs(MsgStats[mentionString]) do
+	if GuildID and MsgStats[GuildID] and MsgStats[GuildID][mentionString] then
+		for k,v in pairs(MsgStats[GuildID][mentionString]) do
 			if v["all"] then all = all + v["all"] end
 			if v["notall"] then notall = notall + v["notall"] end
 		end
 	end
 	
 	local Mentions = 0
-	if mentionedUsers[mentionString] then
-		for k,v in pairs(mentionedUsers[mentionString]) do
+	if GuildID and mentionedUsers[GuildID] and mentionedUsers[GuildID][mentionString] then
+		for k,v in pairs(mentionedUsers[GuildID][mentionString]) do
 			Mentions = Mentions + v
 		end
 	end
@@ -719,18 +665,22 @@ local function GetAllMessagedAndMentionsCountInChannel(mentionString)
 	return all,notall,Mentions
 end
 
-local function GetAllMessagedAndMentionsCount()
+local function GetAllMessagedAndMentionsCount(GuildID)
 	local MsgCount = 0
-	for k,v in pairs(MsgStats) do
-		for k1,v1 in pairs(v) do
-			if v1["all"] then MsgCount = MsgCount + v1["all"] end
+	if GuildID and MsgStats[GuildID] then
+		for k,v in pairs(MsgStats[GuildID]) do
+			for k1,v1 in pairs(v) do
+				if v1["all"] then MsgCount = MsgCount + v1["all"] end
+			end
 		end
 	end
 	
 	local MentionsCount = 0
-	for k,v in pairs(mentionedUsers) do
-		for k1,v1 in pairs(v) do
-			MentionsCount = MentionsCount + v1
+	if GuildID and mentionedUsers[GuildID] then
+		for k,v in pairs(mentionedUsers[GuildID]) do
+			for k1,v1 in pairs(v) do
+				MentionsCount = MentionsCount + v1
+			end
 		end
 	end
 	
@@ -740,7 +690,7 @@ end
 local function TopChatters(message,a)
 	local str = ""
 	
-	local MsgCount,MentionsCount = GetAllMessagedAndMentionsCount()
+	local MsgCount,MentionsCount = GetAllMessagedAndMentionsCount(message.guild.id)
 	
 	str = "Всего сообщений "..MsgCount.."\nВсего упоминаний "..MentionsCount.."\n\n"
 	
@@ -768,13 +718,15 @@ local function TopChatters(message,a)
 
 	--tоп канал
 	local chatstbl = {}
-	for k,v in pairs(MsgStats) do
-		if not chatstbl[k] then chatstbl[k] = {} end
-		if not chatstbl[k]["all"] then chatstbl[k]["all"] = 0 end
-		if not chatstbl[k]["notall"] then chatstbl[k]["notall"] = 0 end
-		for k1,v1 in pairs(v) do
-			if v1["all"] then chatstbl[k]["all"] = chatstbl[k]["all"] + v1["all"] end
-			if v1["notall"] then chatstbl[k]["notall"] = chatstbl[k]["notall"] + v1["notall"] end
+	if MsgStats[message.guild.id] then
+		for k,v in pairs(MsgStats[message.guild.id]) do
+			if not chatstbl[k] then chatstbl[k] = {} end
+			if not chatstbl[k]["all"] then chatstbl[k]["all"] = 0 end
+			if not chatstbl[k]["notall"] then chatstbl[k]["notall"] = 0 end
+			for k1,v1 in pairs(v) do
+				if v1["all"] then chatstbl[k]["all"] = chatstbl[k]["all"] + v1["all"] end
+				if v1["notall"] then chatstbl[k]["notall"] = chatstbl[k]["notall"] + v1["notall"] end
+			end
 		end
 	end
 	
@@ -793,10 +745,12 @@ local function TopChatters(message,a)
 	end
 	
 	local chatmenstionstbl = {}
-	for k,v in pairs(mentionedUsers) do
-		if not chatmenstionstbl[k] then chatmenstionstbl[k] = 0 end
-		for k1,v1 in pairs(v) do
-			chatmenstionstbl[k] = chatmenstionstbl[k] + v1
+	if mentionedUsers[message.guild.id] then
+		for k,v in pairs(mentionedUsers[message.guild.id]) do
+			if not chatmenstionstbl[k] then chatmenstionstbl[k] = 0 end
+			for k1,v1 in pairs(v) do
+				chatmenstionstbl[k] = chatmenstionstbl[k] + v1
+			end
 		end
 	end
 	local TopMentionsChat = GetTopOne(chatmenstionstbl,nil,true)
@@ -806,30 +760,32 @@ local function TopChatters(message,a)
 	end
 	
 	--топ юзер в каждом канале
-	for k,v in pairs(MsgStats) do
-		local TopOneInChannelAll = GetTopOne(v,true)
-		local TopOneInChannelNotAll = GetTopOne(v)
-		str = str.."\nКанал "..k..":\n"
-		local all,notall,Mentions = GetAllMessagedAndMentionsCountInChannel(k)
-		str = str.."Всего сообщений "..all.."\n"
-		str = str.."Всего сообщений, написанных не подряд "..notall.."\n"
-		str = str.."Всего упоминаний "..notall.."\n"
-		str = str.."Человек, написавший больше всего сообщений:\n"
-		for k1,v1 in pairs(TopOneInChannelAll) do
-			str = str..v1[1].." - сообщений: "..v1[2].."\n"
-		end
-		str = str.."Человек, написавший больше всего сообщений не подряд:\n"
-		for k1,v1 in pairs(TopOneInChannelNotAll) do
-			str = str..v1[1].." - сообщений: "..v1[2].."\n"
-		end
-		
-		local TopOneInChannelMentions = mentionedUsers[k] and GetTopOne(mentionedUsers[k],nil,true) or {}
-		if TableCount(TopOneInChannelMentions) > 0 then
-			local MentionsPrinted = false
-			for k1,v1 in pairs(TopOneInChannelMentions) do
-				if v1[1] and v1[2] then
-					if not MentionsPrinted then str = str.."Человек, которого упоминали больше всего:\n" MentionsPrinted = true end
-					str = str..v1[1].." - упоминаний: "..v1[2].."\n"
+	if MsgStats[message.guild.id] then
+		for k,v in pairs(MsgStats[message.guild.id]) do
+			local TopOneInChannelAll = GetTopOne(v,true)
+			local TopOneInChannelNotAll = GetTopOne(v)
+			str = str.."\nКанал "..k..":\n"
+			local all,notall,Mentions = GetAllMessagedAndMentionsCountInChannel(k,message.guild.id)
+			str = str.."Всего сообщений "..all.."\n"
+			str = str.."Всего сообщений, написанных не подряд "..notall.."\n"
+			str = str.."Всего упоминаний "..notall.."\n"
+			str = str.."Человек, написавший больше всего сообщений:\n"
+			for k1,v1 in pairs(TopOneInChannelAll) do
+				str = str..v1[1].." - сообщений: "..v1[2].."\n"
+			end
+			str = str.."Человек, написавший больше всего сообщений не подряд:\n"
+			for k1,v1 in pairs(TopOneInChannelNotAll) do
+				str = str..v1[1].." - сообщений: "..v1[2].."\n"
+			end
+			
+			local TopOneInChannelMentions = mentionedUsers[message.guild.id] and mentionedUsers[message.guild.id][k] and GetTopOne(mentionedUsers[message.guild.id][k],nil,true) or {}
+			if TableCount(TopOneInChannelMentions) > 0 then
+				local MentionsPrinted = false
+				for k1,v1 in pairs(TopOneInChannelMentions) do
+					if v1[1] and v1[2] then
+						if not MentionsPrinted then str = str.."Человек, которого упоминали больше всего:\n" MentionsPrinted = true end
+						str = str..v1[1].." - упоминаний: "..v1[2].."\n"
+					end
 				end
 			end
 		end
@@ -879,7 +835,7 @@ local function CurChannel(message,data)
 	message.channel:send(message.author.mentionString..", это канал `"..message.channel.mentionString.."`, ID: "..tostring(message.channel.id))
 end
 
-local JoiningMessages = fileread("C:\\Same\\DiscordBot\\JoiningMessages.txt") and json.decode(fileread("C:\\Same\\DiscordBot\\JoiningMessages.txt")) or {}
+local JoiningMessages = fileread("JoiningMessages.txt") and json.decode(fileread("JoiningMessages.txt")) or {}
 
 local function ShowJoiningMessages(message,a)
 	local str = ""
@@ -900,26 +856,31 @@ local function RemoveJoiningMessages(message,data)	--TODO
 	
 end
 
+local function Server(message,data)
+	message.channel:send(message.guild.id)
+end
+
 CommandsTbl["!стата"] = {GetStat,120}	-- command, function, cooldown	-- TODO , возможно кулдауны по ролям. Функция что-то возвращает при ошибке или отсутствии доступа
-CommandsTbl["!бан"] = {SetBan,0,{"461651884906643457"}}	
-CommandsTbl["!добавить чат-триггер"] = {AddChatTrigger,0,{"461651884906643457","578304137045737472","550388390982320128"}}	
+CommandsTbl["!бан"] = {SetBan,0,{"594611225762070541"}}	
+CommandsTbl["!добавить чат-триггер"] = {AddChatTrigger,0,{"594611225762070541"}}	
 CommandsTbl["!бот"] = {ImGay,120}	
 CommandsTbl["!чат-триггеры"] = {ShowChatTriggers,120}	
-CommandsTbl["!удалить чат-триггер"] = {RemoveChatTrigger,0,{"461651884906643457","578304137045737472","550388390982320128"}}	
+CommandsTbl["!удалить чат-триггер"] = {RemoveChatTrigger,0,{"594611225762070541"}}	
 CommandsTbl["!команды"] = {ShowAllCommands,120}	
 CommandsTbl["!топ"] = {TopChatters,120}	
 CommandsTbl["!роли"] = {GetRole,120}	
 CommandsTbl["!дата"] = {Date,120}	
-CommandsTbl["!канал"] = {CurChannel,0,{"461651884906643457"}}	
-CommandsTbl["!приветственные сообщения"] = {ShowJoiningMessages,0,{"461651884906643457"}}	
-CommandsTbl["!добавить приветственное сообщение"] = {AddJoiningMessage,0,{"461651884906643457"}}	--TODO
-CommandsTbl["!удалить приветственное сообщение"] = {RemoveJoiningMessages,0,{"461651884906643457"}}	--TODO
+CommandsTbl["!канал"] = {CurChannel,0,{"594611225762070541"}}	
+CommandsTbl["!приветственные сообщения"] = {ShowJoiningMessages,0,{"594611225762070541"}}	
+CommandsTbl["!добавить приветственное сообщение"] = {AddJoiningMessage,0,{"594611225762070541"}}	--TODO
+CommandsTbl["!удалить приветственное сообщение"] = {RemoveJoiningMessages,0,{"594611225762070541"}}	--TODO
 CommandsTbl["!чекранг"] = {CheckRank,0}
-CommandsTbl["!чекранг2"] = {CheckRank2,0}
+--CommandsTbl["!чекранг2"] = {CheckRank2,0}
 CommandsTbl["!чекбан"] = {CheckBan,0}
-CommandsTbl["!разбан"] = {Unban,0,{"461651884906643457"}}
-CommandsTbl["!сетранг"] = {SetRank,0,{"461651884906643457"}}
-CommandsTbl["!сетранг2"] = {SetRank2,0,{"461651884906643457"}}
+CommandsTbl["!разбан"] = {Unban,0,{"594611225762070541"}}
+CommandsTbl["!сетранг"] = {SetRank,0,{"594611225762070541"}}
+CommandsTbl["!сервер"] = {Server,0,{"594611225762070541"}}
+--CommandsTbl["!сетранг2"] = {SetRank2,0,{"461651884906643457"}}
 
 local CommandUsed = {}	-- command, user, whenUsed
 for k,v in pairs(CommandsTbl) do
@@ -953,6 +914,7 @@ end)
 end)]]
 
 Client:on('messageCreate', function(message)
+	if not message.guild then return end
 	if message.author.mentionString == "<@514387864650514467>" then return end
 	
 	--print(#message.content)
@@ -973,8 +935,8 @@ Client:on('messageCreate', function(message)
 	
 	if message.author.bot then
 		if LastMsg[channel] then
-			if MsgStats[channel] and MsgStats[channel][LastMsg[channel].user] and MsgStats[channel][LastMsg[channel].user]["all"] and type(MsgStats[channel][LastMsg[channel].user]["all"]) == "number" and MsgStats[channel][LastMsg[channel].user]["all"] > 0 then MsgStats[channel][LastMsg[channel].user]["all"] = MsgStats[channel][LastMsg[channel].user]["all"] - 1 end
-			if LastMsg[channel].notall and MsgStats[channel] and MsgStats[channel][LastMsg[channel].user] and MsgStats[channel][LastMsg[channel].user]["notall"] and type(MsgStats[channel][LastMsg[channel].user]["notall"]) == "number" and MsgStats[channel][LastMsg[channel].user]["notall"] > 0 then MsgStats[channel][LastMsg[channel].user]["notall"] = MsgStats[channel][LastMsg[channel].user]["notall"] - 1 end
+			if MsgStats[message.guild.id] and MsgStats[message.guild.id][channel] and MsgStats[message.guild.id][channel][LastMsg[channel].user] and MsgStats[message.guild.id][channel][LastMsg[channel].user]["all"] and type(MsgStats[message.guild.id][channel][LastMsg[channel].user]["all"]) == "number" and MsgStats[message.guild.id][channel][LastMsg[channel].user]["all"] > 0 then MsgStats[message.guild.id][channel][LastMsg[channel].user]["all"] = MsgStats[message.guild.id][channel][LastMsg[channel].user]["all"] - 1 end
+			if LastMsg[channel].notall and MsgStats[message.guild.id] and MsgStats[message.guild.id][channel] and MsgStats[message.guild.id][channel][LastMsg[channel].user] and MsgStats[message.guild.id][channel][LastMsg[channel].user]["notall"] and type(MsgStats[message.guild.id][channel][LastMsg[channel].user]["notall"]) == "number" and MsgStats[message.guild.id][channel][LastMsg[channel].user]["notall"] > 0 then MsgStats[message.guild.id][channel][LastMsg[channel].user]["notall"] = MsgStats[message.guild.id][channel][LastMsg[channel].user]["notall"] - 1 end
 		end
 	end
 	
@@ -1015,30 +977,34 @@ Client:on('messageCreate', function(message)
 	if ItWasCommand then return end
 	
 	local mentionedUsersInMessage = message.mentionedUsers:toArray()
-	if not mentionedUsers[channel] then mentionedUsers[channel] = {} end
+	if not mentionedUsers[message.guild.id] then mentionedUsers[message.guild.id] = {} end
+	if not mentionedUsers[message.guild.id][channel] then mentionedUsers[message.guild.id][channel] = {} end
 	for k,v in pairs(mentionedUsersInMessage) do
 		v = string.gsub(v.mentionString,"!","")
 		if v ~= message.author.mentionString then
-			if not mentionedUsers[channel][v] then mentionedUsers[channel][v] = 1 else mentionedUsers[channel][v] = mentionedUsers[channel][v] + 1 end
+			if not mentionedUsers[message.guild.id][channel][v] then mentionedUsers[message.guild.id][channel][v] = 1 else mentionedUsers[message.guild.id][channel][v] = mentionedUsers[message.guild.id][channel][v] + 1 end
 		end
 	end
 	
-	for k,v in pairs(TriggersPrintTbl) do
-		if contentLower:find(k) then 
-			local TblSize = TableCount(v)
-			message.channel:send(v[math.random(1,TblSize)])
+	if TriggersPrintTbl[message.guild.id] then
+		for k,v in pairs(TriggersPrintTbl[message.guild.id]) do
+			if contentLower:find(k) then 
+				local TblSize = TableCount(v)
+				message.channel:send(v[math.random(1,TblSize)])
+			end
 		end
 	end
 	
 	--увеличение каунтера при написании человеком любого сообщения
 	local all = nil
-	if not MsgStats[channel] then MsgStats[channel] = {} end
-	if not MsgStats[channel][user] then MsgStats[channel][user] = {} end
-	MsgStats[channel][user]["all"] = type(MsgStats[channel][user]["all"]) == "number" and MsgStats[channel][user]["all"] + 1 or 1
+	if not MsgStats[message.guild.id] then MsgStats[message.guild.id] = {} end
+	if not MsgStats[message.guild.id][channel] then MsgStats[message.guild.id][channel] = {} end
+	if not MsgStats[message.guild.id][channel][user] then MsgStats[message.guild.id][channel][user] = {} end
+	MsgStats[message.guild.id][channel][user]["all"] = type(MsgStats[message.guild.id][channel][user]["all"]) == "number" and MsgStats[message.guild.id][channel][user]["all"] + 1 or 1
 	all = true
-	--message.channel:send(MsgStats[channel][user]["all"])
+	--message.channel:send(MsgStats[message.guild.id][channel][user]["all"])
 	if not LastMsg[channel] or LastMsg[channel].user ~= user then
-		MsgStats[channel][user]["notall"] = type(MsgStats[channel][user]["notall"]) == "number" and MsgStats[channel][user]["notall"] + 1 or 1
+		MsgStats[message.guild.id][channel][user]["notall"] = type(MsgStats[message.guild.id][channel][user]["notall"]) == "number" and MsgStats[message.guild.id][channel][user]["notall"] + 1 or 1
 		all = false
 	end
 	
@@ -1047,8 +1013,8 @@ Client:on('messageCreate', function(message)
 	LastMsg[channel].msg = msg
 	LastMsg[channel].notall = not all
 	
-	filewrite("C:\\Same\\DiscordBot\\MsgStats.txt", json.encode(MsgStats))
-	filewrite("C:\\Same\\DiscordBot\\mentionedUsers.txt", json.encode(mentionedUsers))
+	filewrite("MsgStats.txt", json.encode(MsgStats))
+	filewrite("mentionedUsers.txt", json.encode(mentionedUsers))
 	filewrite("O:\\LastMsg.txt", json.encode(LastMsg))
 end)
 
