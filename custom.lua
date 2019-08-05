@@ -67,7 +67,6 @@ function stringfind(where, what, lowerr, startpos, endpos)
 	return false
 end
 
---TODO не занижать чат-триггеры
 --TODO приветственные сообщения
 --TODO коины. +за удержание в топе, -за удаление сообщений
 --TODO если в сообщении перед сообщением бота было упоминание, то его тоже надо вычесть
@@ -534,8 +533,9 @@ local function AddChatTrigger(message,data)
 		return
 	end
 	arg1 = bigrustosmall(arg1)
-	arg2 = bigrustosmall(arg2)
-	if TriggersPrintTbl[message.guild.id] and TriggersPrintTbl[message.guild.id][arg1] and FindInTable(TriggersPrintTbl[message.guild.id][arg1],arg2) then message.channel:send("Данный триггер уже существует.") end
+	--arg2 = bigrustosmall(arg2)
+	
+	if TriggersPrintTbl[message.guild.id] and TriggersPrintTbl[message.guild.id][arg1] and FindInTable(TriggersPrintTbl[message.guild.id][arg1],arg2) then message.channel:send("Данный триггер уже существует.") return end
 	if not TriggersPrintTbl[message.guild.id] then TriggersPrintTbl[message.guild.id] = {} end
 	if not TriggersPrintTbl[message.guild.id][arg1] then TriggersPrintTbl[message.guild.id][arg1] = {} end
 	table.insert(TriggersPrintTbl[message.guild.id][arg1],1,arg2)
