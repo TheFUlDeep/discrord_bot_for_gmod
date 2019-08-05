@@ -156,7 +156,7 @@ local RanksTBL = {}
 local function GetRanksBansFromWebServer()
 	HTTPGET(
 		WebServerIP,
-		"/metrostroi/sync/ranks/",
+		"/sync/ranks/",
 		nil,
 		function(body)  
 			RanksTBL = json.decode(body)
@@ -168,7 +168,7 @@ local function GetRanksBansFromWebServer()
 	
 	HTTPGET(
 		WebServerIP,
-		"/metrostroi/sync/ranks/bans/",
+		"/sync/ranks/bans/",
 		nil,
 		function(body)  
 			BansTBL = json.decode(body)
@@ -186,7 +186,7 @@ local function CheckRank(message,steamid) --TODO добавить поис ни�
 	if not steamid or steamid == "" then return end
 	HTTPGET(
 		WebServerIP,
-		"/metrostroi/sync/ranks/?SteamID="..steamid,
+		"/sync/ranks/?SteamID="..steamid,
 		nil,
 		function(body)  
 			if not body or body == "" then table.insert(WatNeedToSend,1,{message.channel,"ничего не найдено"}) return end
@@ -206,7 +206,7 @@ local function CheckBan(message,steamid)
 	if not steamid or steamid == "" then return end
 	HTTPGET(
 		WebServerIP,
-		"/metrostroi/sync/ranks/bans/?SteamID="..steamid,
+		"/sync/ranks/bans/?SteamID="..steamid,
 		nil,
 		function(body)  
 			if not body or body == "" then table.insert(WatNeedToSend,1,{message.channel,"ничего не найдено"}) return end
@@ -277,7 +277,7 @@ local function SetRank(message,data)
 	if strsub2 ~= "operator" and strsub2 ~= "admin" and strsub2 ~= "user" and strsub2 ~= "tsar" and strsub2 ~= "zamtsar" and strsub2 ~= "superadmin" then message.channel:send("Нельзя установить такую роль.") return end
 	HTTPPOST(
 		WebServerIP,
-		"/metrostroi/sync/ranks/",
+		"/sync/ranks/",
 		nil,
 		{SteamID = strsub1,Rank = strsub2,Nick = RanksTBL and RanksTBL[strsub1] and RanksTBL[strsub1].Nick or "Unknown"}--,
 		--function() table.insert(WatNeedToSend,1,{message.channel,"Игроку "..strsub1.." установлен ранг "..strsub2}) end,
@@ -300,7 +300,7 @@ local function SetBan(message,data)
 	local strsub3 = not start2 and "без причины" or string.sub(data,start2 + 1)
 	HTTPPOST(
 		WebServerIP,
-		"/metrostroi/sync/ranks/bans/",
+		"/sync/ranks/bans/",
 		nil,
 		{SteamID = strsub1,Reason = strsub3,Nick = RanksTBL and RanksTBL[strsub1] and RanksTBL[strsub1].Nick or "Unknown",WhoBannedID = "Discord",WhoBanned = message.author.name.."("..message.author.mentionString..")",Duration = strsub2}--,
 		--function() table.insert(WatNeedToSend,1,{message.channel,"Игроку "..strsub1.." установлен ранг "..strsub2}) end,
@@ -314,7 +314,7 @@ local function Unban(message,data)
 	if not data or data == "" or not data:find("STEAM_") then table.insert(WatNeedToSend,1,{message.channel,"Неверный SteamID."}) return end
 	HTTPPOST(
 		WebServerIP,
-		"/metrostroi/sync/ranks/bans/",
+		"/sync/ranks/bans/",
 		nil,
 		{SteamID = data,Unbanned = "unbanned"}--,
 		--function() table.insert(WatNeedToSend,1,{message.channel,"Игроку "..strsub1.." установлен ранг "..strsub2}) end,
