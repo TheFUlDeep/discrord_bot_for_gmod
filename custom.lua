@@ -93,7 +93,7 @@ local function fileread(file)
 end
 
 local BotSettings = {
-	['Token'] = "Bot "..(fileread("token.txt") and fileread("token.txt") or "");
+	['Token'] = "Bot "..(fileread("token.txt") or "");
 	['Prefix'] = ";";
 }
 
@@ -148,7 +148,7 @@ local function HTTPGET(ip,path,port,OnResponse,OnError)
 	req:done()
 end
 
-local WebServerIP = "212.22.77.19"
+local WebServerIP = fileread("webserverip.txt") or "127.0.0.1"
 
 local BansTBL = {}
 local RanksTBL = {}
