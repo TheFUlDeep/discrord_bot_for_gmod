@@ -16,6 +16,10 @@ local querystring = require('querystring')
 --print(package.cpath)
 --local socket require("socket")
 
+local function GetUserMentionString(user)
+	if user.mentionString then return string.gsub(user.mentionString,"!","") end
+end
+
 local BIGRUS = {"А","Б","В","Г","Д","Е","Ё","Ж","З","И","Й","К","Л","М","Н","О","П","Р","С","Т","У","Ф","Х","Ц","Ч","Ш","Щ","Ъ","Ы","Ь","Э","Ю","Я"}
 local smallrus = {"а","б","в","г","д","е","ё","ж","з","и","й","к","л","м","н","о","п","р","с","т","у","ф","х","ц","ч","ш","щ","ъ","ы","ь","э","ю","я"}
 local BIG_to_small = {}
@@ -24,7 +28,7 @@ for k, v in next, BIGRUS do
 	BIG_to_small[v] = smallrus[k]
    
 end
-function bigrustosmall(str)
+local function bigrustosmall(str)
    
 	local strlow = ""
    
@@ -36,7 +40,7 @@ function bigrustosmall(str)
    
 end
 
-function stringfind(where, what, lowerr, startpos, endpos)
+local function stringfind(where, what, lowerr, startpos, endpos)
 	local Exeption = false
 	if not where or not what then --[[print("[STRINGFIND EXEPTION] cant find required arguments")]] return false end
 	if type(where) ~= "string" or type(what) ~= "string" then --[[print("[STRINGFIND EXEPTION] not string")]] return false
@@ -69,12 +73,9 @@ end
 
 --TODO приветственные сообщения
 --TODO коины. +за удержание в топе, -за удаление сообщений
---TODO если в сообщении перед сообщением бота было упоминание, то его тоже надо вычесть
---TODO если написал бот, то брать не последнее сообщение, а искать сообщение перед ботом
+--(передумал. это не нужно но закомментированный блок есть) если в сообщении перед сообщением бота было упоминание, то его тоже надо вычесть
+--(не обязательно) если написал бот, то брать не последнее сообщение, а искать сообщение перед ботом. Это для единичных случаев, когда LastMsg не предыдущее (например, из-за того, что бот упал)
 --TODO повторять триггер, если фраза в чате есть несколько раз
---TODO бот вылетает при вызове команды в личных сообщениях
---TODO отправление ботом сообщения в канал по id через личные сообщения
---TODO изменение статы при редактировании?
 
 local function filewrite(file,data)
 	local f = io.open(file,"w")
@@ -301,7 +302,7 @@ local function SetBan(message,data)
 		WebServerIP,
 		"/sync/ranks/bans/",
 		nil,
-		{SteamID = strsub1,Reason = strsub3,Nick = RanksTBL and RanksTBL[strsub1] and RanksTBL[strsub1].Nick or "Unknown",WhoBannedID = "Discord",WhoBanned = message.author.name.."("..message.author.mentionString..")",Duration = strsub2}--,
+		{SteamID = strsub1,Reason = strsub3,Nick = RanksTBL and RanksTBL[strsub1] and RanksTBL[strsub1].Nick or "Unknown",WhoBannedID = "Discord",WhoBanned = message.author.name.."("..(GetUserMentionString(message.author))..")",Duration = strsub2}--,
 		--function() table.insert(WatNeedToSend,1,{message.channel,"Игроку "..strsub1.." установлен ранг "..strsub2}) end,
 		--function(error) table.insert(WatNeedToSend,1,{message.channel,"HTTP ERROR "..error}) end
 	)
@@ -421,7 +422,7 @@ end
 local function GetStat(message,usermentionstring)
 	local FirstMessagePrinted = false
 	local str = ""
-	if not usermentionstring:find("%d") then usermentionstring = message.author.mentionString end
+	if not usermentionstring:find("%d") then usermentionstring = GetUserMentionString(message.author) end
 	usermentionstring = string.gsub(usermentionstring,"!","")
 	if MsgStats[message.guild.id] then
 		for k,v in pairs(MsgStats[message.guild.id]) do
@@ -710,7 +711,7 @@ local function TopChatters(message,a)
 	end
 	
 	str = str.."Человек, с наибольшем количеством упоминаний:\n"
-	local mentionsusers = GenerateMentionsUsersTbl()
+	local mentionsusers = GenerateMentionsUsersTbl(message.guild.id)
 	local TopAllMentions = GetTopOne(mentionsusers,nil,true)
 	for k,v in pairs(TopAllMentions) do
 		str = str..v[1].." - упоминаний: "..v[2].."\n"
@@ -798,7 +799,7 @@ local function GetUserByMentionString(str)		-- не используется TOD
 	local users = Client.users:toArray()
 	for k,v in pairs(users) do
 		local user = getUser(v)
-		if user.mentionString == str then return user end
+		if GetUserMentionString(user) == str then return user end
 	end
 	return false
 end
@@ -813,11 +814,11 @@ local function GetRole(message,data)
 	local str = ""
 	local roleIDs = memb.roles:toArray()
 	for k,v in pairs(roleIDs) do 
-		print(k,v)
+		--print(k,v)
 		str = str..tostring(v)..": "..Client:getRole(v).name.."\n"
 		--print(Client:getRole(v).name)
 	end
-	local mentionString = message.author.mentionString
+	local mentionString = GetUserMentionString(message.author)
 	mentionString = string.gsub(mentionString,"!","")
 	if str ~= "" then 
 		str = "Роли игрока "..mentionString..": \n"..str 
@@ -832,7 +833,7 @@ local function Date(message,a)
 end
 
 local function CurChannel(message,data)
-	message.channel:send(message.author.mentionString..", это канал `"..message.channel.mentionString.."`, ID: "..tostring(message.channel.id))
+	message.channel:send((GetUserMentionString(message.author))..", это канал `"..message.channel.mentionString.."`, ID: "..tostring(message.channel.id))
 end
 
 local JoiningMessages = fileread("JoiningMessages.txt") and json.decode(fileread("JoiningMessages.txt")) or {}
@@ -874,7 +875,7 @@ CommandsTbl["!канал"] = {CurChannel,0,{"594611225762070541"}}
 CommandsTbl["!приветственные сообщения"] = {ShowJoiningMessages,0,{"594611225762070541"}}	
 CommandsTbl["!добавить приветственное сообщение"] = {AddJoiningMessage,0,{"594611225762070541"}}	--TODO
 CommandsTbl["!удалить приветственное сообщение"] = {RemoveJoiningMessages,0,{"594611225762070541"}}	--TODO
-CommandsTbl["!чекранг"] = {CheckRank,0}
+CommandsTbl["!чекранг"] = {CheckRank,0} --TODO
 --CommandsTbl["!чекранг2"] = {CheckRank2,0}
 CommandsTbl["!чекбан"] = {CheckBan,0}
 CommandsTbl["!разбан"] = {Unban,0,{"594611225762070541"}}
@@ -894,28 +895,122 @@ local function MemberHasRole(member,tbl)
 	return false
 end
 
-Client:on('ready', function()
+
+--обновление информации о серверах
+local ServerNames = {}
+local ServersInfo = {}
+local NeedUpdateServerInfo
+
+local function UpdateServersInfo()
+	local messages = {"608066691150249999","608092730748305408","608092735848579072"}
+	if not NeedUpdateServerInfo then return end
+	NeedUpdateServerInfo = false
+	if not ServersInfo or type(ServersInfo) ~= "table" then return end
+	local Channel = Client:getChannel("596731206993838081")
+	if not Channel then return end
+	
+	local i = 0
+	for ip,v in pairs(ServersInfo) do
+		i = i + 1
+		if messages[i] then
+			local Message = Channel:getMessage(messages[i])
+			if Message then
+				if Message.content ~= "" then Message:setContent("") end
+				if type(v) == "table" then
+					ServerNames[i] = v.ServerName
+					local IconURL = "https://images-ext-1.discordapp.net/external/DVrAzp7wY7c2P_dreWdW3Ai8Lj0wTEMB_ZuD28pMW98/%3Fwidth%3D858%26height%3D677/https/media.discordapp.net/attachments/502070663725449236/592392019620528132/3af2ae0dd9f712a5475117200c3f4ed8.png"--TODO зависимость от количества игроков
+					local PlayersInfo = ""
+					if v.Players then
+						--local PlayersCount = 0
+						for k,ply in pairs(v.Players) do
+							--[[PlayersCount = PlayersCount + 1
+							if PlayersCount == 1 then PlayersInfo = PlayersInfo.."\n" else PlayersInfo = PlayersInfo.."\n\n" end
+							PlayersInfo = PlayersInfo..ply.Nick.." ("..ply.SteamID..")["..ply.Rank.."], онлайн "..ply.Time.." сек."
+							if ply.Position then PlayersInfo = PlayersInfo.."\nместоположение "..ply.Position end]]
+							PlayersInfo = "\n"..PlayersInfo..ply.Nick.." ("..ply.SteamID..")" -- сделал максимально коротко
+						end
+					end
+					Message:setEmbed{
+						description = "**Сервер:** "..v.ServerName.."\n\n**Карта:** "..v.Map.."\n\n**Игроков:** "..v.PlayerCount.."/"..v.MaxPlayers..PlayersInfo.."\n\n**IP:** "..ip.."\n**Ссылка на подключение:** steam://connect/"..ip,
+						--url = {"steam://connect/93.170.123.99:27018"}, -- не работает
+						--timestamp = "asdsad",-- не работает
+						footer = {		--маленький текст снизу
+							text = "\n\n\nАктуально на "..os.date("%H:%M:%S %d.%m.%Y",v.LastUpdate).." (МСК)",
+						--	icon_url = "https://cdn.discordapp.com/attachments/434738851815227402/608034671204237332/1.PNG" -- маленькая картинка
+						},
+						thumbnail = {
+							url = IconURL,--картинка справа сверху
+							--height = 100,	--размеры не меняются
+							--width = 100
+						},
+						--[[provider = {			--хз шоета
+							url = "https://www.youtube.com/feed/subscriptions",
+							name = "asd"
+						},]]
+						--description = "*ссылка* на подключение\nsteam://connect/"..ip, --маленький текст, но больше, чем footer
+						color = discordia.Color("#FFFFFF").value -- черный цвет
+					}
+				else
+					Message:setEmbed{
+						title = "**Сервер:** "..(ServerNames[i] or i).."\n\n**"..v.."**",
+						image = {
+							url = "https://cs5.pikabu.ru/post_img/2015/11/25/10/1448471547_356077498.jpg"
+						}
+					}
+				end
+			end
+		end
+	end
+end
+
+Client:on('ready', function()-- так можно делать сколько угодно таймеров
 	local function Timer()
 		--print("Timer")
 		sleep(1 * 1000)
 		CheckWatNeedToSend()
+		UpdateServersInfo()
 		Timer()
 	end
 	Timer()
 end)
 
---[[Client:on('ready', function()		-- так можно делать сколько угодно таймеров
-	local function Timer5()
-		print("Timer5")
-		sleep(5 * 1000)
-		Timer5()
-	end
-	Timer5()
-end)]]
 
+Client:on('ready', function()
+	local function Timer()
+		HTTPGET( 
+			WebServerIP,
+			"/serverinfo/",
+			nil,
+			function(body)
+				ServersInfo = body
+				if not body then return end
+				body = json.decode(body)
+				ServersInfo = body
+				NeedUpdateServerInfo = true
+			end
+		)
+		
+		sleep(30 * 1000)
+		Timer()
+	end
+	Timer()
+end)
+
+	--[[for channel1,tbl1 in pairs(LastMsg) do
+		tbl.user
+		tbl.mentionedUsers
+		tbl.msg
+		tbl.notall
+	end]]
+	
+--local CallCount = 0
 Client:on('messageCreate', function(message)
+	--CallCount = CallCount + 1
 	if not message.guild then return end
-	if message.author.mentionString == "<@514387864650514467>" then return end
+	
+	local user = string.gsub(message.author.mentionString,"!","")
+	
+	if user == "<@514387864650514467>" then return end
 	
 	--print(#message.content)
 	--print(message.author.name)
@@ -929,7 +1024,6 @@ Client:on('messageCreate', function(message)
 	--print(message.channel.mentionString) -- для упоминания канала
 	--print(message.channel.type) 		-- непонятно
 	
-	local user = message.author.mentionString
 	local msg = message.content
 	local channel = message.channel.mentionString
 	
@@ -937,6 +1031,18 @@ Client:on('messageCreate', function(message)
 		if LastMsg[channel] then
 			if MsgStats[message.guild.id] and MsgStats[message.guild.id][channel] and MsgStats[message.guild.id][channel][LastMsg[channel].user] and MsgStats[message.guild.id][channel][LastMsg[channel].user]["all"] and type(MsgStats[message.guild.id][channel][LastMsg[channel].user]["all"]) == "number" and MsgStats[message.guild.id][channel][LastMsg[channel].user]["all"] > 0 then MsgStats[message.guild.id][channel][LastMsg[channel].user]["all"] = MsgStats[message.guild.id][channel][LastMsg[channel].user]["all"] - 1 end
 			if LastMsg[channel].notall and MsgStats[message.guild.id] and MsgStats[message.guild.id][channel] and MsgStats[message.guild.id][channel][LastMsg[channel].user] and MsgStats[message.guild.id][channel][LastMsg[channel].user]["notall"] and type(MsgStats[message.guild.id][channel][LastMsg[channel].user]["notall"]) == "number" and MsgStats[message.guild.id][channel][LastMsg[channel].user]["notall"] > 0 then MsgStats[message.guild.id][channel][LastMsg[channel].user]["notall"] = MsgStats[message.guild.id][channel][LastMsg[channel].user]["notall"] - 1 end
+			--уменьшение количества упоминаний
+			--[[if LastMsg[channel] and LastMsg[channel].user and LastMsg[channel].mentionedUsers and mentionedUsers[message.guild.id] and mentionedUsers[message.guild.id][channel] then
+				for k,v in pairs(LastMsg[channel].mentionedUsers) do
+					for k1,v1 in pairs(mentionedUsers[message.guild.id][channel]) do
+						for k2,v2 in pairs(v1) do
+							if k2 == v and mentionedUsers[message.guild.id][channel][k2] > 0 then
+								mentionedUsers[message.guild.id][channel][k2] = mentionedUsers[message.guild.id][channel][k2] - 1
+							end
+						end
+					end
+				end
+			end]]
 		end
 	end
 	
@@ -959,7 +1065,7 @@ Client:on('messageCreate', function(message)
 	for k,v in pairs(CommandsTbl) do
 		if string.sub(contentLower,1,#k) == k then
 			ItWasCommand = true
-			if (v[3] and MemberHasRole(message.member,v[3])) or not v[3] then
+			if v[3] and (MemberHasRole(message.member,v[3]) or MemberHasRole(message.member,v[3])) or not v[3] then
 				if (not CommandUsed[k][user] or os.time() - CommandUsed[k][user] >= v[2]) then
 					CommandUsed[k][user] = os.time()
 					local data = string.sub(message.content, #k + 2)
@@ -979,9 +1085,10 @@ Client:on('messageCreate', function(message)
 	local mentionedUsersInMessage = message.mentionedUsers:toArray()
 	if not mentionedUsers[message.guild.id] then mentionedUsers[message.guild.id] = {} end
 	if not mentionedUsers[message.guild.id][channel] then mentionedUsers[message.guild.id][channel] = {} end
+	
 	for k,v in pairs(mentionedUsersInMessage) do
 		v = string.gsub(v.mentionString,"!","")
-		if v ~= message.author.mentionString then
+		if v ~= user then
 			if not mentionedUsers[message.guild.id][channel][v] then mentionedUsers[message.guild.id][channel][v] = 1 else mentionedUsers[message.guild.id][channel][v] = mentionedUsers[message.guild.id][channel][v] + 1 end
 		end
 	end
@@ -1013,16 +1120,25 @@ Client:on('messageCreate', function(message)
 	LastMsg[channel].msg = msg
 	LastMsg[channel].notall = not all
 	
+	--для уменьшения количества упоминаний
+	--[[local MentionedUsers = {}
+	for k,v in pairs(mentionedUsersInMessage) do
+		if v.mentionString then MentionedUsers[#MentionedUsers + 1] = string.gsub(v.mentionString,"!","") end
+	end
+	LastMsg[channel].mentionedUsers = MentionedUsers]]
+	
 	filewrite("MsgStats.txt", json.encode(MsgStats))
 	filewrite("mentionedUsers.txt", json.encode(mentionedUsers))
 	filewrite("O:\\LastMsg.txt", json.encode(LastMsg))
+	
+	--print(CallCount)
 end)
 
 --local playing = nil
 --local CurVoiceChannel = nil
 --local JoinedToVoiceChannel = false	-- это нужно?
 Client:on('memberJoin', function(member)							--TODO возможность добавлять и удалять приветственные сообщения
-	local channel = Client:getChannel("502070663725449236")
+	local channel = Client:getChannel("434738783234031616")
 	local msg = "Тут типо рандомное приветственное сообщение."
 	local JoiningMessagesN = TableCount(JoiningMessages)
 	if JoiningMessagesN > 0 then
