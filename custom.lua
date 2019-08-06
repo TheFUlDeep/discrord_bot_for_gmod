@@ -1355,7 +1355,7 @@ Client:on('messageCreate', function(message)
 	local MentionedUsersChanged
 	for k,v in pairs(mentionedUsersInMessage) do
 		v = string.gsub(v.mentionString,"!","")
-		if v ~= user then
+		if v ~= user and not GetMemberByMentionString(message,v).user.bot then
 			if not mentionedUsers[message.guild.id][channel][v] then mentionedUsers[message.guild.id][channel][v] = 1 else mentionedUsers[message.guild.id][channel][v] = mentionedUsers[message.guild.id][channel][v] + 1 end
 			MentionedUsersChanged = true
 		end
