@@ -1,5 +1,8 @@
 local discordia = require('discordia')
-local Client = discordia.Client()
+local Client = discordia.Client{
+	cacheAllMembers = true,
+	syncGuilds = true
+}
 local json = require ("json")
 local http = require('http')
 local timer = require('timer')
@@ -70,9 +73,8 @@ local function stringfind(where, what, lowerr, startpos, endpos)
 	end
 	return false
 end
---TODO добавление айди сообщения, куда отправлять информацию о сервере командой
---TODO member permission. Позволить менять доступ к командам разным группам
---TODO приветственные сообщения
+
+--TODO пермишны не на целый сервер, а на чат
 --TODO коины. +за удержание в топе, -за удаление сообщений
 --(передумал. это не нужно но закомментированный блок есть) если в сообщении перед сообщением бота было упоминание, то его тоже надо вычесть
 --(не обязательно) если написал бот, то брать не последнее сообщение, а искать сообщение перед ботом. Это для единичных случаев, когда LastMsg не предыдущее (например, из-за того, что бот упал)
@@ -125,6 +127,7 @@ local function CheckWatNeedToSend()
 end
 
 local function HTTPGET(ip,path,port,OnResponse,OnError)
+	if not ip then return end
 	local options = {
 	  host = ip,
 	  port = port or 80,
@@ -149,18 +152,24 @@ local function HTTPGET(ip,path,port,OnResponse,OnError)
 	req:done()
 end
 
-local WebServerIP = fileread("webserverip.txt") or "127.0.0.1"
+local WebServerIPs = fileread("webserverips.txt") and json.decode(fileread("webserverips.txt")) or {} --TODO если у двух серверов будет одинаковый айпи - будет проблема
 
 local BansTBL = {}
 local RanksTBL = {}
 
-local function GetRanksBansFromWebServer()
+local function GetGuildIDByWebServerIp(ip)
+	for k,v in pairs(WebServerIPs) do
+		if v == ip then return k end
+	end
+end
+
+local function GetRanksBansFromWebServer(WebServerIP)
 	HTTPGET(
 		WebServerIP,
 		"/sync/ranks/",
 		nil,
 		function(body)  
-			RanksTBL = json.decode(body)
+			RanksTBL[GetGuildIDByWebServerIp(WebServerIP)] = json.decode(body)
 		end,
 		function(error)
 			print("HTTP ERROR "..error)
@@ -172,21 +181,20 @@ local function GetRanksBansFromWebServer()
 		"/sync/ranks/bans/",
 		nil,
 		function(body)  
-			BansTBL = json.decode(body)
+			BansTBL[GetGuildIDByWebServerIp(WebServerIP)] = json.decode(body)
 		end,
 		function(error)
 			print("HTTP ERROR "..error)
 		end
 	)
 end
-GetRanksBansFromWebServer()
 
-local function CheckRank(message,steamid) --TODO добавить поис ника
-	GetRanksBansFromWebServer()
+local function CheckRank(message,steamid) --TODO добавить поиск ника
+	GetRanksBansFromWebServer(WebServerIPs[message.guild.id])
 	sleep(1000)
 	if not steamid or steamid == "" then return end
 	HTTPGET(
-		WebServerIP,
+		WebServerIPs[message.guild.id],
 		"/sync/ranks/?SteamID="..steamid,
 		nil,
 		function(body)  
@@ -202,11 +210,11 @@ local function CheckRank(message,steamid) --TODO добавить поис ни�
 end
 
 local function CheckBan(message,steamid)
-	GetRanksBansFromWebServer()
+	GetRanksBansFromWebServer(WebServerIPs[message.guild.id])
 	sleep(1000)
 	if not steamid or steamid == "" then return end
 	HTTPGET(
-		WebServerIP,
+		WebServerIPs[message.guild.id],
 		"/sync/ranks/bans/?SteamID="..steamid,
 		nil,
 		function(body)  
@@ -236,6 +244,7 @@ local function TableToXWwwFormUrlencoded(tbl)
 end
 
 local function HTTPPOST(ip,path,port,data,OnResponse,OnError)
+	if not ip then return end
 	if not data then return end
 	if type(data) == "table" then data = TableToXWwwFormUrlencoded(data) end
 	--print(data)
@@ -267,7 +276,7 @@ local function HTTPPOST(ip,path,port,data,OnResponse,OnError)
 end
 
 local function SetRank(message,data)
-	GetRanksBansFromWebServer()
+	GetRanksBansFromWebServer(WebServerIPs[message.guild.id])
 	sleep(1000)
 	if not data or data == "" then table.insert(WatNeedToSend,1,{message.channel,"Неверный SteamID."}) return end
 	local start = string.find(data," ")
@@ -277,17 +286,17 @@ local function SetRank(message,data)
 	local strsub2 = string.sub(data,start + 1)
 	if strsub2 ~= "operator" and strsub2 ~= "admin" and strsub2 ~= "user" and strsub2 ~= "tsar" and strsub2 ~= "zamtsar" and strsub2 ~= "superadmin" then message.channel:send("Нельзя установить такую роль.") return end
 	HTTPPOST(
-		WebServerIP,
+		WebServerIPs[message.guild.id],
 		"/sync/ranks/",
 		nil,
-		{SteamID = strsub1,Rank = strsub2,Nick = RanksTBL and RanksTBL[strsub1] and RanksTBL[strsub1].Nick or "Unknown"}--,
+		{SteamID = strsub1,Rank = strsub2,Nick = RanksTBL and RanksTBL[message.guild.id] and RanksTBL[message.guild.id][strsub1] and RanksTBL[message.guild.id][strsub1].Nick or "Unknown"}--,
 		--function() table.insert(WatNeedToSend,1,{message.channel,"Игроку "..strsub1.." установлен ранг "..strsub2}) end,
 		--function(error) table.insert(WatNeedToSend,1,{message.channel,"HTTP ERROR "..error}) end
 	)
 end
 
 local function SetBan(message,data)
-	GetRanksBansFromWebServer()
+	GetRanksBansFromWebServer(WebServerIPs[message.guild.id])
 	sleep(1000)
 	if not data or data == "" then table.insert(WatNeedToSend,1,{message.channel,"Неверный SteamID."}) return end
 	local start = string.find(data," ")
@@ -300,21 +309,21 @@ local function SetBan(message,data)
 	if strsub2 == "0" then strsub2 = "perma" end
 	local strsub3 = not start2 and "без причины" or string.sub(data,start2 + 1)
 	HTTPPOST(
-		WebServerIP,
+		WebServerIPs[message.guild.id],
 		"/sync/ranks/bans/",
 		nil,
-		{SteamID = strsub1,Reason = strsub3,Nick = RanksTBL and RanksTBL[strsub1] and RanksTBL[strsub1].Nick or "Unknown",WhoBannedID = "Discord",WhoBanned = message.author.name.."("..(GetUserMentionString(message.author))..")",Duration = strsub2}--,
+		{SteamID = strsub1,Reason = strsub3,Nick = RanksTBL and RanksTBL[message.guild.id] and RanksTBL[message.guild.id][strsub1] and RanksTBL[message.guild.id][strsub1].Nick or "Unknown",WhoBannedID = "Discord",WhoBanned = message.author.name.."("..(GetUserMentionString(message.author))..")",Duration = strsub2}--,
 		--function() table.insert(WatNeedToSend,1,{message.channel,"Игроку "..strsub1.." установлен ранг "..strsub2}) end,
 		--function(error) table.insert(WatNeedToSend,1,{message.channel,"HTTP ERROR "..error}) end
 	)
 end
 
 local function Unban(message,data)
-	GetRanksBansFromWebServer()
+	GetRanksBansFromWebServer(WebServerIPs[message.guild.id])
 	sleep(1000)
 	if not data or data == "" or not data:find("STEAM_") then table.insert(WatNeedToSend,1,{message.channel,"Неверный SteamID."}) return end
 	HTTPPOST(
-		WebServerIP,
+		WebServerIPs[message.guild.id],
 		"/sync/ranks/bans/",
 		nil,
 		{SteamID = data,Unbanned = "unbanned"}--,
@@ -796,22 +805,20 @@ local function TopChatters(message,a)
 	--message.channel:send(str)
 end
 
-local function GetUserByMentionString(str)		-- не используется TODO
-	local users = Client.users:toArray()
-	for k,v in pairs(users) do
-		local user = getUser(v)
-		if GetUserMentionString(user) == str then return user end
+local function GetMemberByMentionString(message,str)
+	str = string.gsub(str,"!","")
+	local members = message.guild.members:toArray()
+	for k,v in pairs(members) do
+		if GetUserMentionString(v.user) == str then return v end
 	end
-	return false
 end
 
 local function GetRole(message,data)
 	--print(message.member.highestRole.id)
 	--print(message.member.highestRole.name)
-	local memb = message.member
-	--[[if not data:find("%d") then		-- TODO роли выбранного игрока
-		
-	end]]
+	local memb = (not data or not string.find(data,"%d")) and message.member or GetMemberByMentionString(message,data)
+
+	if not memb then message.channel:send("Пользователь не найден") return end
 	local str = ""
 	local roleIDs = memb.roles:toArray()
 	for k,v in pairs(roleIDs) do 
@@ -822,10 +829,10 @@ local function GetRole(message,data)
 	local mentionString = GetUserMentionString(message.author)
 	mentionString = string.gsub(mentionString,"!","")
 	if str ~= "" then 
-		str = "Роли игрока "..mentionString..": \n"..str 
+		str = "Роли игрока "..GetUserMentionString(memb.user)..": \n"..str 
 		message.channel:send(str)
 	else
-		message.channel:send(mentionString..", у тебя нет ролей.")
+		message.channel:send("У "..GetUserMentionString(memb.user).."  нет ролей.")
 	end
 end
 
@@ -837,51 +844,222 @@ local function CurChannel(message,data)
 	message.channel:send((GetUserMentionString(message.author))..", это канал `"..message.channel.mentionString.."`, ID: "..tostring(message.channel.id))
 end
 
+local JoiningMessageChannel = fileread("JoiningMessageChannel.txt") and json.decode(fileread("JoiningMessageChannel.txt")) or {}
 local JoiningMessages = fileread("JoiningMessages.txt") and json.decode(fileread("JoiningMessages.txt")) or {}
 
 local function ShowJoiningMessages(message,a)
-	local str = ""
-	local JoiningMessagesN = TableCount(JoiningMessages)
+	if not JoiningMessages[message.guild.id] or type(JoiningMessages[message.guild.id]) ~= "table" then message.channel:send("У меня в списке нет ни одного приветственного сообщения.") return end
+	local JoiningMessagesN = TableCount(JoiningMessages[message.guild.id])
 	if JoiningMessagesN < 1 then message.channel:send("У меня в списке нет ни одного приветственного сообщения.") return end
-	for k,v in pairs(JoiningMessages) do
+	local str = ""
+	for k,v in pairs(JoiningMessages[message.guild.id]) do
 		str = str..k..":\n"
 		str = str..v.."\n\n"
 	end
 	Send(message.channel,str)
+	if not JoiningMessageChannel[message.guild.id] then
+		message.channel:send("Приветственные сообщения не будут отображаться, пока вы не укажете канал для них (!канал приветственных сообщений)")
+	end
 end
 
-local function AddJoiningMessage(message,data)	--TODO
-	
+local function AddJoiningMessage(message,data)
+	if not JoiningMessages[message.guild.id] then JoiningMessages[message.guild.id] = {} end
+	table.insert(JoiningMessages[message.guild.id],1,data)
+	filewrite("JoiningMessages.txt",json.encode(JoiningMessages))
+	message.channel:send("Приветственное сообщение добавлено")
+	if not JoiningMessageChannel[message.guild.id] then
+		message.channel:send("Приветственные сообщения не будут отображаться, пока вы не укажете канал для них (!канал приветственных сообщений)")
+	end
 end
 
-local function RemoveJoiningMessages(message,data)	--TODO
-	
+local function RemoveJoiningMessages(message,data)
+	if not JoiningMessages[message.guild.id] or not JoiningMessages[message.guild.id][tonumber(data)] then
+		message.channel:send("Данного сообщения не существует")
+		return
+	else
+		JoiningMessages[message.guild.id][tonumber(data)] = nil
+		message.channel:send("Приветственное сообщение успешно удалено")
+	end
+	filewrite("JoiningMessages.txt",json.encode(JoiningMessages))
 end
 
 local function Server(message,data)
 	message.channel:send(message.guild.id)
 end
 
-CommandsTbl["!стата"] = {GetStat,120}	-- command, function, cooldown	-- TODO , возможно кулдауны по ролям. Функция что-то возвращает при ошибке или отсутствии доступа
-CommandsTbl["!бан"] = {SetBan,0,{"594611225762070541"}}	
-CommandsTbl["!добавить чат-триггер"] = {AddChatTrigger,0,{"594611225762070541"}}	
+local CommandsRolesPermissions = fileread("CommandsRolesPermissions.txt") and json.decode(fileread("CommandsRolesPermissions.txt")) or {}
+
+local CommandsUsersPermissions = fileread("CommandsUsersPermissions.txt") and json.decode(fileread("CommandsUsersPermissions.txt")) or {}
+
+local function AddAccessToCommandForRole(message,data)
+	local arg1,arg2 = ConvertDataToTwoArgs(data)
+	if not arg1 or not arg2 then 
+		message.channel:send('Команда введена некорректно. Пример: `!дать доступ к команде для роли [[!добавить чат-триггер]] [[594611225762070541]]`.')
+		return
+	end
+	
+	if not CommandsTbl[arg1] then message.channel:send('Команда не найдена') return end
+	if not message.guild:getRole(arg2) then message.channel:send('Роль не найдена') return end
+	
+	if not CommandsRolesPermissions[message.guild.id] then CommandsRolesPermissions[message.guild.id] = {} end
+	if not CommandsRolesPermissions[message.guild.id][arg1] then CommandsRolesPermissions[message.guild.id][arg1] = {} end
+	if FindInTable(CommandsRolesPermissions[message.guild.id][arg1],arg2) then 
+		message.channel:send('Данная роль уже имеет доступ к этой команде') 
+		return
+	else
+		table.insert(CommandsRolesPermissions[message.guild.id][arg1],1,arg2)
+		message.channel:send('Роли '..arg2.." выдан доступ к команде "..arg1) 
+		filewrite("CommandsRolesPermissions.txt",json.encode(CommandsRolesPermissions))
+	end
+end
+
+local function AddAccessToCommandForUser(message,data)
+	local arg1,arg2 = ConvertDataToTwoArgs(data)
+	if not arg1 or not arg2 then 
+		message.channel:send('Команда введена некорректно. Пример: `!дать доступ к команде для роли [[!добавить чат-триггер]] [[594611225762070541]]`.')
+		return
+	end
+	arg2 = string.gsub(arg2,"!","")
+	if not GetMemberByMentionString(message,arg2) then message.channel:send('Игрок не найден') return end
+	if not CommandsTbl[arg1] then message.channel:send('Команда не найдена') return end
+	if not CommandsTbl[arg1][3] then message.channel:send('К этой команде доступ имеют все') return end
+	
+	if not CommandsUsersPermissions[message.guild.id] then CommandsUsersPermissions[message.guild.id] = {} end
+	if not CommandsUsersPermissions[message.guild.id][arg1] then CommandsUsersPermissions[message.guild.id][arg1] = {} end
+	if FindInTable(CommandsUsersPermissions[message.guild.id][arg1],arg2) then 
+		message.channel:send('Данная роль уже имеет доступ к этой команде') 
+		return
+	else
+		table.insert(CommandsUsersPermissions[message.guild.id][arg1],1,arg2)
+		message.channel:send('Юзеру '..arg2.." выдан доступ к команде "..arg1) 
+		filewrite("CommandsUsersPermissions.txt",json.encode(CommandsUsersPermissions))
+	end
+end
+
+local function RemoveAccessToCommandForRole(message,data)
+	local arg1,arg2 = ConvertDataToTwoArgs(data)
+	if not arg1 or not arg2 then 
+		message.channel:send('Команда введена некорректно. Пример: `!дать доступ к команде для роли [[!добавить чат-триггер]] [[594611225762070541]]`.')
+		return
+	end
+	
+	if not CommandsTbl[arg1] then message.channel:send('Команда не найдена') return end
+	if not message.guild:getRole(arg2) then message.channel:send('Роль не найдена') return end
+	if not CommandsRolesPermissions[message.guild.id] or not CommandsRolesPermissions[message.guild.id][arg1] then message.channel:send("К этой команде и так не было доступа") return end
+	local Found = FindDeepInTable(CommandsRolesPermissions[message.guild.id][arg1],arg2)
+	if not Found then 
+		message.channel:send("Роль "..arg2.." не имеет доступа к этой команде") 
+		return
+	else
+		CommandsRolesPermissions[message.guild.id][arg1][Found] = nil
+		message.channel:send("Роль "..arg2.." больше не имеет доступа к команде "..arg1) 
+		filewrite("CommandsRolesPermissions.txt",json.encode(CommandsRolesPermissions))
+	end
+end
+
+local function RemoveAccessToCommandForUser(message,data)
+	local arg1,arg2 = ConvertDataToTwoArgs(data)
+	if not arg1 or not arg2 then 
+		message.channel:send('Команда введена некорректно. Пример: `!дать доступ к команде для роли [[!добавить чат-триггер]] [[594611225762070541]]`.')
+		return
+	end
+	arg2 = string.gsub(arg2,"!","")
+	if not CommandsTbl[arg1] then message.channel:send('Команда не найдена') return end
+	if not GetMemberByMentionString(message,arg2) then message.channel:send('Игрок не найден') return end
+	if not CommandsUsersPermissions[message.guild.id] or not CommandsUsersPermissions[message.guild.id][arg1] then message.channel:send("К этой команде и так не было доступа") return end
+	local Found = FindDeepInTable(CommandsUsersPermissions[message.guild.id][arg1],arg2)
+	if not Found then 
+		message.channel:send("Роль "..arg2.." не имеет доступа к этой команде") 
+		return
+	else
+		CommandsUsersPermissions[message.guild.id][arg1][Found] = nil
+		message.channel:send("Роль "..arg2.." больше не имеет доступа к команде "..arg1) 
+		filewrite("CommandsUsersPermissions.txt",json.encode(CommandsUsersPermissions))
+	end
+end
+
+local function GetAccesses(message,data)
+	local str = ""
+	for comm,v in pairs(CommandsTbl) do
+		local users
+		local roles
+		if CommandsUsersPermissions[message.guild.id] and CommandsUsersPermissions[message.guild.id][comm] then
+			users = json.encode(CommandsUsersPermissions[message.guild.id][comm])
+		end
+		if CommandsRolesPermissions[message.guild.id] and CommandsRolesPermissions[message.guild.id][comm] then
+			roles = json.encode(CommandsRolesPermissions[message.guild.id][comm])
+		end
+		if users or roles then
+			if not users then users = "" end
+			if not roles then roles = "" end
+			str = str ~= "" and str.."\n\n" or str
+			str = str.."Команда `"..comm.."`: "..users.." "..roles
+		end
+	end
+	if str ~= "" then Send(message.channel,str) end
+end
+
+
+local function SetWebServerIp(message,data)
+	WebServerIP = data
+	WebServerIPs[message.guild.id] = data
+	filewrite("webserverips.txt",json.encode(WebServerIPs))
+	message.channel:send("Готово")
+end
+
+local BotChannelsTbl = fileread("botchannels.txt") and json.decode(fileread("botchannels.txt")) or {}
+
+local function SetBotChannel(message,data)
+	if BotChannelsTbl[message.guild.id] and BotChannelsTbl[message.guild.id] == message.channel.mentionString then
+		BotChannelsTbl[message.guild.id] = nil
+		message.channel:send("Теперь с ботом можно общться в любом канале этого сервера")
+	else
+		BotChannelsTbl[message.guild.id] = message.channel.mentionString
+		message.channel:send("Теперь с ботом можно общться только в этом канале")
+	end
+	filewrite("botchannels.txt",json.encode(BotChannelsTbl))
+end
+
+local function JoiningMessageChannelF(message,data)
+	if not JoiningMessageChannel[message.guild.id] or JoiningMessageChannel[message.guild.id] ~= message.channel.mentionString then
+		JoiningMessageChannel[message.guild.id] = message.channel.mentionString
+		message.channel:send("Теперь приветственные сообщения будут писаться в канал "..message.channel.mentionString)
+	else
+		JoiningMessageChannel[message.guild.id] = nil
+		message.channel:send("Теперь приветственные не будут отображаться")
+	end
+	filewrite("JoiningMessageChannel.txt",json.encode(JoiningMessageChannel))
+end
+
+CommandsTbl["!стата"] = {GetStat,120}	-- command, function, cooldown, not for all users	-- TODO , возможно кулдауны по ролям. Функция что-то возвращает при ошибке или отсутствии доступа
+CommandsTbl["!бан"] = {SetBan,0,true}	
+CommandsTbl["!добавить чат-триггер"] = {AddChatTrigger,0,true}	
 CommandsTbl["!бот"] = {ImGay,120}	
 CommandsTbl["!чат-триггеры"] = {ShowChatTriggers,120}	
-CommandsTbl["!удалить чат-триггер"] = {RemoveChatTrigger,0,{"594611225762070541"}}	
+CommandsTbl["!удалить чат-триггер"] = {RemoveChatTrigger,0,true}	
 CommandsTbl["!команды"] = {ShowAllCommands,120}	
 CommandsTbl["!топ"] = {TopChatters,120}	
 CommandsTbl["!роли"] = {GetRole,120}	
 CommandsTbl["!дата"] = {Date,120}	
-CommandsTbl["!канал"] = {CurChannel,0,{"594611225762070541"}}	
-CommandsTbl["!приветственные сообщения"] = {ShowJoiningMessages,0,{"594611225762070541"}}	
-CommandsTbl["!добавить приветственное сообщение"] = {AddJoiningMessage,0,{"594611225762070541"}}	--TODO
-CommandsTbl["!удалить приветственное сообщение"] = {RemoveJoiningMessages,0,{"594611225762070541"}}	--TODO
+CommandsTbl["!канал"] = {CurChannel,0,true}	
+CommandsTbl["!приветственные сообщения"] = {ShowJoiningMessages,120}	
+CommandsTbl["!добавить приветственное сообщение"] = {AddJoiningMessage,0,true}
+CommandsTbl["!удалить приветственное сообщение"] = {RemoveJoiningMessages,0,true}
 CommandsTbl["!чекранг"] = {CheckRank,0} --TODO
 --CommandsTbl["!чекранг2"] = {CheckRank2,0}
 CommandsTbl["!чекбан"] = {CheckBan,0}
-CommandsTbl["!разбан"] = {Unban,0,{"594611225762070541"}}
-CommandsTbl["!сетранг"] = {SetRank,0,{"594611225762070541"}}
-CommandsTbl["!сервер"] = {Server,0,{"594611225762070541"}}
+CommandsTbl["!разбан"] = {Unban,0,true}
+CommandsTbl["!сетранг"] = {SetRank,0,true}
+CommandsTbl["!сервер"] = {Server,0,true}
+CommandsTbl["!дать доступ к команде для роли"] = {AddAccessToCommandForRole,0,true}
+CommandsTbl["!убрать доступ к команде у роли"] = {RemoveAccessToCommandForRole,0,true}
+CommandsTbl["!дать доступ к команде для юзера"] = {AddAccessToCommandForUser,0,true}
+CommandsTbl["!убрать доступ к команде у юзера"] = {RemoveAccessToCommandForUser,0,true}
+CommandsTbl["!доступы"] = {GetAccesses,0}
+CommandsTbl["!информация о серверах"] = {AddServerInfoMessages,0,true}--TODO
+CommandsTbl["!айпи веб-сервера"] = {SetWebServerIp,0,true}
+CommandsTbl["!канал приветственных сообщений"] = {JoiningMessageChannelF,0,true}
+CommandsTbl["!канал для общения с ботом"] = {SetBotChannel,0,true}
 --CommandsTbl["!сетранг2"] = {SetRank2,0,{"461651884906643457"}}
 
 local CommandUsed = {}	-- command, user, whenUsed
@@ -900,25 +1078,31 @@ end
 --обновление информации о серверах
 local ServerNames = {}
 local ServersInfo = {}
-local NeedUpdateServerInfo
+local LoadServerInfoOnStartUp = true
+local NeedUpdateServerInfo = {}
 
 local function UpdateServersInfo()
 	local messages = {"608066691150249999","608092730748305408","608092735848579072"}
-	if not NeedUpdateServerInfo then return end
-	NeedUpdateServerInfo = false
-	if not ServersInfo or type(ServersInfo) ~= "table" then return end
 	local Channel = Client:getChannel("596731206993838081")
 	if not Channel then return end
 	
+	if not WebServerIP and Channel.guild then WebServerIP = WebServerIPs[Channel.guild.id] end
+	
+	if not NeedUpdateServerInfo[Channel.guild.id] then return end
+	NeedUpdateServerInfo[Channel.guild.id] = false
+	if not ServersInfo[Channel.guild.id] or type(ServersInfo[Channel.guild.id]) ~= "table" then return end
+	
+	
 	local i = 0
-	for ip,v in pairs(ServersInfo) do
+	for ip,v in pairs(ServersInfo[Channel.guild.id]) do
 		i = i + 1
 		if messages[i] then
 			local Message = Channel:getMessage(messages[i])
 			if Message then
 				if Message.content ~= "" then Message:setContent("") end
 				if type(v) == "table" then
-					ServerNames[i] = v.ServerName
+					if not ServerNames[Channel.guild.id] then ServerNames[Channel.guild.id] = {} end
+					ServerNames[Channel.guild.id][i] = v.ServerName
 					local IconURL = "https://images-ext-1.discordapp.net/external/DVrAzp7wY7c2P_dreWdW3Ai8Lj0wTEMB_ZuD28pMW98/%3Fwidth%3D858%26height%3D677/https/media.discordapp.net/attachments/502070663725449236/592392019620528132/3af2ae0dd9f712a5475117200c3f4ed8.png"--TODO зависимость от количества игроков
 					local PlayersInfo = ""
 					if v.Players then
@@ -928,7 +1112,7 @@ local function UpdateServersInfo()
 							if PlayersCount == 1 then PlayersInfo = PlayersInfo.."\n" else PlayersInfo = PlayersInfo.."\n\n" end
 							PlayersInfo = PlayersInfo..ply.Nick.." ("..ply.SteamID..")["..ply.Rank.."], онлайн "..ply.Time.." сек."
 							if ply.Position then PlayersInfo = PlayersInfo.."\nместоположение "..ply.Position end]]
-							PlayersInfo = "\n"..PlayersInfo..ply.Nick.." ("..ply.SteamID..")" -- сделал максимально коротко
+							PlayersInfo = PlayersInfo.."\n"..ply.Nick.." ("..ply.SteamID..")" -- сделал максимально коротко
 						end
 					end
 					Message:setEmbed{
@@ -953,7 +1137,7 @@ local function UpdateServersInfo()
 					}
 				else
 					Message:setEmbed{
-						title = "**Сервер:** "..(ServerNames[i] or i).."\n\n**"..v.."**",
+						title = "**Сервер:** "..(ServerNames[Channel.guild.id] and ServerNames[Channel.guild.id][i] or i).."\n\n**"..v.."**",
 						image = {
 							url = "https://cs5.pikabu.ru/post_img/2015/11/25/10/1448471547_356077498.jpg"
 						}
@@ -967,7 +1151,7 @@ end
 Client:on('ready', function()-- так можно делать сколько угодно таймеров
 	local function Timer()
 		--print("Timer")
-		sleep(1 * 1000)
+		sleep(5 * 1000)
 		CheckWatNeedToSend()
 		UpdateServersInfo()
 		Timer()
@@ -978,18 +1162,22 @@ end)
 
 Client:on('ready', function()
 	local function Timer()
-		HTTPGET( 
-			WebServerIP,
-			"/serverinfo/",
-			nil,
-			function(body)
-				ServersInfo = body
-				if not body then return end
-				body = json.decode(body)
-				ServersInfo = body
-				NeedUpdateServerInfo = true
+		if WebServerIPs then
+			for k,v in pairs(WebServerIPs) do
+				HTTPGET( 
+					WebServerIPs[k],
+					"/serverinfo/",
+					nil,
+					function(body)
+						ServersInfo[k] = body
+						if not body then return end
+						body = json.decode(body)
+						ServersInfo[k] = body
+						NeedUpdateServerInfo[k] = true
+					end
+				)
 			end
-		)
+		end
 		
 		sleep(30 * 1000)
 		Timer()
@@ -1008,6 +1196,8 @@ end)
 Client:on('messageCreate', function(message)
 	--CallCount = CallCount + 1
 	if not message.guild then return end
+	
+	if not WebServerIP then WebServerIP = WebServerIPs[message.guild.id] end
 	
 	local user = string.gsub(message.author.mentionString,"!","")
 	
@@ -1063,20 +1253,22 @@ Client:on('messageCreate', function(message)
 	
 	local contentLower = bigrustosmall(message.content)
 	
-	for k,v in pairs(CommandsTbl) do
-		if string.sub(contentLower,1,#k) == k then
-			ItWasCommand = true
-			if v[3] and (MemberHasRole(message.member,v[3]) or MemberHasRole(message.member,v[3])) or not v[3] then
-				if (not CommandUsed[k][user] or os.time() - CommandUsed[k][user] >= v[2]) then
-					CommandUsed[k][user] = os.time()
-					local data = string.sub(message.content, #k + 2)
-					v[1](message,data)
-				else
-					local timestamp = v[2] - (os.time() - CommandUsed[k][user])
-					message.channel:send(user..", ты сможешь воспользоваться этой командой через "..timestamp.." секунд"..EndingRussian(timestamp)..".")
+	if not BotChannelsTbl[message.guild.id] or BotChannelsTbl[message.guild.id] == channel then
+		for k,v in pairs(CommandsTbl) do
+			if string.sub(contentLower,1,#k) == k then
+				ItWasCommand = true
+				if v[3] and (message.member:hasPermission(message.channel, "administrator") or CommandsRolesPermissions[message.guild.id] and CommandsRolesPermissions[message.guild.id][k] and MemberHasRole(message.member,CommandsRolesPermissions[message.guild.id][k]) or CommandsUsersPermissions[message.guild.id] and CommandsUsersPermissions[message.guild.id][k] and FindInTable(CommandsUsersPermissions[message.guild.id][k],user)) or not v[3] then
+					if (not CommandUsed[k][user] or os.time() - CommandUsed[k][user] >= v[2]) then
+						CommandUsed[k][user] = os.time()
+						local data = string.sub(message.content, #k + 2)
+						v[1](message,data)
+					else
+						local timestamp = v[2] - (os.time() - CommandUsed[k][user])
+						message.channel:send(user..", ты сможешь воспользоваться этой командой через "..timestamp.." секунд"..EndingRussian(timestamp)..".")
+					end
+				else 
+					message.channel:send(user..", у тебя нет доступа к этой команде.")
 				end
-			else 
-				message.channel:send(user..", у тебя нет доступа к этой команде.")
 			end
 		end
 	end
@@ -1138,12 +1330,16 @@ end)
 --local playing = nil
 --local CurVoiceChannel = nil
 --local JoinedToVoiceChannel = false	-- это нужно?
-Client:on('memberJoin', function(member)							--TODO возможность добавлять и удалять приветственные сообщения
+Client:on('memberJoin', function(member)
 	local channel = Client:getChannel("434738783234031616")
+	if not WebServerIP and channel.guild then WebServerIP = WebServerIPs[channel.guild.id] end
 	local msg = "Тут типо рандомное приветственное сообщение."
 	local JoiningMessagesN = TableCount(JoiningMessages)
 	if JoiningMessagesN > 0 then
 		msg = JoiningMessages[math.random(1,JoiningMessagesN)]
+		while msg:find("@user") do
+			msg = string.gsub(msg,"@user",GetUserMentionString(member.user))
+		end
 	end
 	Send(channel,msg)
 end)
@@ -1158,6 +1354,7 @@ Client:on('voiceChannelJoin', function(member,channel)
 		--CurVoiceChannel = channel
 		--JoinedToVoiceChannel = true
 	--end
+	if not WebServerIP and channel.guild then WebServerIP = WebServerIPs[channel.guild.id] end
 end)
 
 --[[Client:on('typingStart', function(userid,channelId,timestamp)
