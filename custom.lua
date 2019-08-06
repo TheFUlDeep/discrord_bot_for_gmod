@@ -74,6 +74,7 @@ local function stringfind(where, what, lowerr, startpos, endpos)
 	return false
 end
 
+--TODO Purge
 --TODO пермишны не на целый сервер, а на чат
 --TODO !ответить
 --TODO коины. +за удержание в топе, -за удаление сообщений
@@ -155,24 +156,18 @@ local function HTTPGET(ip,path,port,OnResponse,OnError)
 	req:done()
 end
 
-local WebServerIPs = fileread("webserverips.txt") and json.decode(fileread("webserverips.txt")) or {} --TODO если у двух серверов будет одинаковый айпи - будет проблема
+local WebServerIPs = fileread("webserverips.txt") and json.decode(fileread("webserverips.txt")) or {}
 
 local BansTBL = {}
 local RanksTBL = {}
 
-local function GetGuildIDByWebServerIp(ip)
-	for k,v in pairs(WebServerIPs) do
-		if v == ip then return k end
-	end
-end
-
-local function GetRanksBansFromWebServer(WebServerIP)
+local function GetRanksBansFromWebServer(WebServerIP,GuildID)
 	HTTPGET(
 		WebServerIP,
 		"/sync/ranks/",
 		nil,
 		function(body)  
-			RanksTBL[GetGuildIDByWebServerIp(WebServerIP)] = json.decode(body)
+			RanksTBL[GuildID] = json.decode(body)
 		end,
 		function(error)
 			print("HTTP ERROR "..error)
@@ -184,7 +179,7 @@ local function GetRanksBansFromWebServer(WebServerIP)
 		"/sync/ranks/bans/",
 		nil,
 		function(body)  
-			BansTBL[GetGuildIDByWebServerIp(WebServerIP)] = json.decode(body)
+			BansTBL[GuildID] = json.decode(body)
 		end,
 		function(error)
 			print("HTTP ERROR "..error)
@@ -193,7 +188,7 @@ local function GetRanksBansFromWebServer(WebServerIP)
 end
 
 local function CheckRank(message,steamid) --TODO добавить поиск ника
-	GetRanksBansFromWebServer(WebServerIPs[message.guild.id])
+	GetRanksBansFromWebServer(WebServerIPs[message.guild.id],message.guild.id)
 	sleep(1000)
 	if not steamid or steamid == "" then return end
 	HTTPGET(
@@ -213,7 +208,7 @@ local function CheckRank(message,steamid) --TODO добавить поиск н�
 end
 
 local function CheckBan(message,steamid)
-	GetRanksBansFromWebServer(WebServerIPs[message.guild.id])
+	GetRanksBansFromWebServer(WebServerIPs[message.guild.id],message.guild.id)
 	sleep(1000)
 	if not steamid or steamid == "" then return end
 	HTTPGET(
@@ -279,7 +274,7 @@ local function HTTPPOST(ip,path,port,data,OnResponse,OnError)
 end
 
 local function SetRank(message,data)
-	GetRanksBansFromWebServer(WebServerIPs[message.guild.id])
+	GetRanksBansFromWebServer(WebServerIPs[message.guild.id],message.guild.id)
 	sleep(1000)
 	if not data or data == "" then table.insert(WatNeedToSend,1,{message.channel,"Неверный SteamID."}) return end
 	local start = string.find(data," ")
@@ -299,7 +294,7 @@ local function SetRank(message,data)
 end
 
 local function SetBan(message,data)
-	GetRanksBansFromWebServer(WebServerIPs[message.guild.id])
+	GetRanksBansFromWebServer(WebServerIPs[message.guild.id],message.guild.id)
 	sleep(1000)
 	if not data or data == "" then table.insert(WatNeedToSend,1,{message.channel,"Неверный SteamID."}) return end
 	local start = string.find(data," ")
@@ -322,7 +317,7 @@ local function SetBan(message,data)
 end
 
 local function Unban(message,data)
-	GetRanksBansFromWebServer(WebServerIPs[message.guild.id])
+	GetRanksBansFromWebServer(WebServerIPs[message.guild.id],message.guild.id)
 	sleep(1000)
 	if not data or data == "" or not data:find("STEAM_") then table.insert(WatNeedToSend,1,{message.channel,"Неверный SteamID."}) return end
 	HTTPPOST(
@@ -1056,6 +1051,17 @@ end
 local function Reply(message,data)
 end
 
+local function Purge(message,data)
+	--[[if not tonumber(data) then message.channel:send("Некорректное число. Пример: !удалить сообщения 10") return end
+	local data = tonumber(data)
+	if data > 100 then data = 100 end
+	local Messages = message.channel:getMessagesBefore(message.id, data):toArray()
+	for k,v in pairs(Messages) do
+		v:delete()
+	end
+	message:delete()]]
+end
+
 CommandsTbl["!стата"] = {GetStat,120}	-- command, function, cooldown, not for all users	-- TODO , возможно кулдауны по ролям. Функция что-то возвращает при ошибке или отсутствии доступа
 CommandsTbl["!бан"] = {SetBan,0,true}	
 CommandsTbl["!добавить чат-триггер"] = {AddChatTrigger,0,true}	
@@ -1086,6 +1092,7 @@ CommandsTbl["!айпи веб-сервера"] = {SetWebServerIp,0,true}
 CommandsTbl["!канал приветственных сообщений"] = {JoiningMessageChannelF,0,true}
 CommandsTbl["!канал для общения с ботом"] = {SetBotChannel,0,true}
 CommandsTbl["!ответить"] = {Reply,30} --TODO
+CommandsTbl["!удалить сообщения"] = {Purge,0,true} --TODO
 --CommandsTbl["!сетранг2"] = {SetRank2,0,{"461651884906643457"}}
 
 local CommandUsed = {}	-- command, user, whenUsed
@@ -1137,7 +1144,9 @@ local function UpdateServersInfo(GuildID)
 				if type(v) == "table" then
 					if not ServerNames[Channel.guild.id] then ServerNames[Channel.guild.id] = {} end
 					ServerNames[Channel.guild.id][i] = v.ServerName
-					local IconURL = "https://images-ext-1.discordapp.net/external/DVrAzp7wY7c2P_dreWdW3Ai8Lj0wTEMB_ZuD28pMW98/%3Fwidth%3D858%26height%3D677/https/media.discordapp.net/attachments/502070663725449236/592392019620528132/3af2ae0dd9f712a5475117200c3f4ed8.png"--TODO зависимость от количества игроков
+					local IconURL = v.PlayerCount == 0 and "https://images-ext-1.discordapp.net/external/DVrAzp7wY7c2P_dreWdW3Ai8Lj0wTEMB_ZuD28pMW98/%3Fwidth%3D858%26height%3D677/https/media.discordapp.net/attachments/502070663725449236/592392019620528132/3af2ae0dd9f712a5475117200c3f4ed8.png"
+						or v.PlayerCount == v.MaxPlayers and "https://stickeroid.com/uploads/pic/full-pngmart/thumb/stickeroid_5bf54b723e3f3.png"
+						or "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRHbwQpgdcyySwpS-LLAvD3s374p52zqgNAOt0VUGVVAx1Slu5IKg"
 					local PlayersInfo = ""
 					if v.Players then
 						--local PlayersCount = 0
@@ -1150,7 +1159,7 @@ local function UpdateServersInfo(GuildID)
 						end
 					end
 					Message:setEmbed{
-						description = "**Сервер:** "..v.ServerName.."\n\n**Карта:** "..v.Map.."\n\n**Игроков:** "..v.PlayerCount.."/"..v.MaxPlayers..PlayersInfo.."\n\n**IP:** "..ip.."\n**Ссылка на подключение:** steam://connect/"..ip,
+						--description = "**IP:** "..ip.."\n**Ссылка на подключение:** steam://connect/"..ip, -- сделал чреез fields
 						--url = {"steam://connect/93.170.123.99:27018"}, -- не работает
 						--timestamp = "asdsad",-- не работает
 						footer = {		--маленький текст снизу
@@ -1161,6 +1170,13 @@ local function UpdateServersInfo(GuildID)
 							url = IconURL,--картинка справа сверху
 							--height = 100,	--размеры не меняются
 							--width = 100
+						},
+						fields = {
+							{name = "Сервер: ", value = v.ServerName, inline = true},
+							{name = "Карта: ", value = v.Map, inline = true},
+							{name = "Игроки: ", value = v.PlayerCount.."/"..v.MaxPlayers..PlayersInfo, inline = false},
+							{name = "IP: ", value = ip, inline = true},
+							{name = "Ссылка на подключение:: ", value = "steam://connect/"..ip, inline = true},
 						},
 						--[[provider = {			--хз шоета
 							url = "https://www.youtube.com/feed/subscriptions",
@@ -1173,7 +1189,7 @@ local function UpdateServersInfo(GuildID)
 					Message:setEmbed{
 						title = "**Сервер:** "..(ServerNames[Channel.guild.id] and ServerNames[Channel.guild.id][i] or i).."\n\n**"..v.."**",
 						image = {
-							url = "https://cs5.pikabu.ru/post_img/2015/11/25/10/1448471547_356077498.jpg"
+							url = "https://st03.kakprosto.ru/tumb/680/images/article/2016/4/28/236745_5722143711f165722143711f4e.jpeg"
 						}
 					}
 				end
@@ -1336,10 +1352,12 @@ Client:on('messageCreate', function(message)
 	if not mentionedUsers[message.guild.id] then mentionedUsers[message.guild.id] = {} end
 	if not mentionedUsers[message.guild.id][channel] then mentionedUsers[message.guild.id][channel] = {} end
 	
+	local MentionedUsersChanged
 	for k,v in pairs(mentionedUsersInMessage) do
 		v = string.gsub(v.mentionString,"!","")
 		if v ~= user then
 			if not mentionedUsers[message.guild.id][channel][v] then mentionedUsers[message.guild.id][channel][v] = 1 else mentionedUsers[message.guild.id][channel][v] = mentionedUsers[message.guild.id][channel][v] + 1 end
+			MentionedUsersChanged = true
 		end
 	end
 	
@@ -1378,7 +1396,7 @@ Client:on('messageCreate', function(message)
 	LastMsg[channel].mentionedUsers = MentionedUsers]]
 	
 	filewrite("MsgStats.txt", json.encode(MsgStats))
-	filewrite("mentionedUsers.txt", json.encode(mentionedUsers))
+	if MentionedUsersChanged then filewrite("mentionedUsers.txt", json.encode(mentionedUsers)) end
 	filewrite("O:\\LastMsg.txt", json.encode(LastMsg))
 	
 	--print(CallCount)
