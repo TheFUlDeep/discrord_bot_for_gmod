@@ -74,6 +74,7 @@ local function stringfind(where, what, lowerr, startpos, endpos)
 	return false
 end
 
+--TODO синхра чатов
 --TODO Purge
 --TODO триггеры для определенных каналов
 --TODO пермишны не на целый сервер, а на определенный канал
@@ -705,7 +706,7 @@ local function TopChatters(message,a)
 	str = "Всего сообщений "..MsgCount.."\nВсего упоминаний "..MentionsCount.."\n\n"
 	
 	--топ юзер всезде
-	local userstbl = GenerateChatUsersTbl()
+	local userstbl = GenerateChatUsersTbl(message.guild.id)
 	local TopOneUserAll = GetTopOne(userstbl,true)
 	local TopOneUserNotAll = GetTopOne(userstbl)
 
