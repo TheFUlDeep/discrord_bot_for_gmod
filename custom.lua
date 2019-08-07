@@ -74,6 +74,12 @@ local function stringfind(where, what, lowerr, startpos, endpos)
 	return false
 end
 
+--[[
+TODO для подтверждения стима. В игре человек вводит команду на запрос добавления стима (вводя свой ник и секретный код). 
+Эта инфа отправляется на веб-сервер. 
+С веб-сервера эту инфу берет бот и отправляет в дискорд человеку личное сообщение, прося ввести секретный код для подтверждения
+при введении правильного чекретного кода в локальную базу сохраняется mentionString и стимайди юзера
+]]
 --TODO синхра чатов
 --TODO Purge
 --TODO триггеры для определенных каналов
@@ -1149,7 +1155,7 @@ local function UpdateServersInfo(GuildID)
 					local IconURL = v.PlayerCount == 0 and "https://images-ext-1.discordapp.net/external/DVrAzp7wY7c2P_dreWdW3Ai8Lj0wTEMB_ZuD28pMW98/%3Fwidth%3D858%26height%3D677/https/media.discordapp.net/attachments/502070663725449236/592392019620528132/3af2ae0dd9f712a5475117200c3f4ed8.png"
 						or v.PlayerCount == v.MaxPlayers and "https://stickeroid.com/uploads/pic/full-pngmart/thumb/stickeroid_5bf54b723e3f3.png"
 						or "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRHbwQpgdcyySwpS-LLAvD3s374p52zqgNAOt0VUGVVAx1Slu5IKg"
-					local PlayersInfo = ""
+					local PlayersInfo = "```"
 					if v.Players then
 						--local PlayersCount = 0
 						for k,ply in pairs(v.Players) do
@@ -1157,9 +1163,10 @@ local function UpdateServersInfo(GuildID)
 							if PlayersCount == 1 then PlayersInfo = PlayersInfo.."\n" else PlayersInfo = PlayersInfo.."\n\n" end
 							PlayersInfo = PlayersInfo..ply.Nick.." ("..ply.SteamID..")["..ply.Rank.."], онлайн "..ply.Time.." сек."
 							if ply.Position then PlayersInfo = PlayersInfo.."\nместоположение "..ply.Position end]]
-							PlayersInfo = PlayersInfo.."\n`"..ply.Nick.."` ("..ply.SteamID..")" -- сделал максимально коротко
+							PlayersInfo = PlayersInfo.."\n"..ply.Nick.." ("..ply.SteamID..")" -- сделал максимально коротко
 						end
 					end
+					PlayersInfo = PlayersInfo ~= "```" and PlayersInfo.."```" or ""
 					Message:setEmbed{
 						--description = "**IP:** "..ip.."\n**Ссылка на подключение:** steam://connect/"..ip, -- сделал чреез fields
 						--url = {"steam://connect/93.170.123.99:27018"}, -- не работает
