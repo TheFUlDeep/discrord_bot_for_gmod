@@ -1,3 +1,7 @@
+
+--package.path = package.path..".\\lua_modules\\?\\init.lua;"
+--package.path = package.path..".\\lua_modules\\?.lua;"
+
 local discordia = require('discordia')
 local Client = discordia.Client{
 	cacheAllMembers = true,
@@ -8,12 +12,14 @@ local http = require('http')
 local timer = require('timer')
 local sleep = timer.sleep
 local querystring = require('querystring')
+
+--local sourceQ = require('sourcequery')
+
 --local utf8 = require("utf8")
 --print(utf8)
 
 
 
---package.path = package.path .. "C:\\Same\\DiscordBot\\lua_modules\\?.lua;"
 --package.cpath = package.cpath.."C:\\Same\\DiscordBot\\lua_modules\\?.dll;"
 --print(package.path) -- where .lua files are searched for
 --print(package.cpath)
@@ -89,6 +95,7 @@ TODO для подтверждения стима. В игре человек в
 --(передумал. это не нужно но закомментированный блок есть) если в сообщении перед сообщением бота было упоминание, то его тоже надо вычесть
 --(не обязательно) если написал бот, то брать не последнее сообщение, а искать сообщение перед ботом. Это для единичных случаев, когда LastMsg не предыдущее (например, из-за того, что бот упал)
 --TODO повторять триггер, если фраза в чате есть несколько раз
+--TODO выполнение функций на сервере из дискорда
 
 local function filewrite(file,data)
 	print("filewrite",os.date("%H:%M:%S %d.%m.%Y",os.time()),file)
