@@ -214,7 +214,7 @@ local function CheckRank(message,steamid) --TODO добавить поиск н�
 			if not body or body == "" then table.insert(WatNeedToSend,1,{message.channel,"ничего не найдено"}) return end
 			local tbl = json.decode(body)
 			if not tbl or TableCount(tbl) < 1 then table.insert(WatNeedToSend,1,{message.channel,"ничего не найдено"}) return end
-			table.insert(WatNeedToSend,1,{message.channel,"Информация о "..steamid..". Последний ник на сервере: `"..tbl.Nick.."`. Ранг: "..tbl.Rank})
+			table.insert(WatNeedToSend,1,{message.channel,"Информация о `"..steamid.."`. Последний ник на сервере: `"..tbl.Nick.."`. Ранг: "..tbl.Rank})
 		end,
 		function(error)
 			table.insert(WatNeedToSend,1,{message.channel,"HTTP ERROR "..error})
@@ -234,7 +234,7 @@ local function CheckBan(message,steamid)
 			if not body or body == "" then table.insert(WatNeedToSend,1,{message.channel,"ничего не найдено"}) return end
 			local tbl = json.decode(body)
 			if not tbl or TableCount(tbl) < 1 then table.insert(WatNeedToSend,1,{message.channel,"ничего не найдено"}) return end
-			table.insert(WatNeedToSend,1,{message.channel,"Информация о "..steamid..".\nНик при бане: "..tbl.Nick..".\nПричина: "..tbl.Reason..".\nЗабанил: "..tbl.WhoBanned..", его SteamID: "..tbl.WhoBannedID..".\nДата бана: "..os.date("%H:%M:%S %d/%m/%Y",tbl.BanDate)..".\nДата разбана: "..(tbl.UnBanDate ~= "perma" and os.date("%H:%M:%S %d/%m/%Y",tbl.UnBanDate) or "никогда")..(tbl.UnBanDate ~= "perma" and ".\nДо разбана осталось "..math.floor((tbl.UnBanDate - os.time()) / 60).." мин." or "")})
+			table.insert(WatNeedToSend,1,{message.channel,"Информация о `"..steamid.."`.\nНик при бане: `"..tbl.Nick.."`.\nПричина: "..tbl.Reason..".\nЗабанил: `"..tbl.WhoBanned.."`, его SteamID: `"..tbl.WhoBannedID.."`.\nДата бана: "..os.date("%H:%M:%S %d/%m/%Y",tbl.BanDate)..".\nДата разбана: "..(tbl.UnBanDate ~= "perma" and os.date("%H:%M:%S %d/%m/%Y",tbl.UnBanDate) or "никогда")..(tbl.UnBanDate ~= "perma" and ".\nДо разбана осталось "..math.floor((tbl.UnBanDate - os.time()) / 60).." мин." or "")})
 		end,
 		function(error)
 			table.insert(WatNeedToSend,1,{message.channel,"HTTP ERROR "..error})
@@ -890,7 +890,7 @@ local function RemoveJoiningMessages(message,data)
 		message.channel:send("Данного сообщения не существует")
 		return
 	else
-		JoiningMessages[message.guild.id][tonumber(data)] = nil
+		table.remove(JoiningMessages[message.guild.id],tonumber(data))
 		message.channel:send("Приветственное сообщение успешно удалено")
 	end
 	filewrite("JoiningMessages.txt",json.encode(JoiningMessages))
@@ -1077,6 +1077,11 @@ local function Purge(message,data)
 	message:delete()]]
 end
 
+local function Restart(message)
+	message.channel:send("Отправляюсь в могилу...")
+	KekLolArbidolPerzLohKsta()
+end
+
 CommandsTbl["!стата"] = {GetStat,120}	-- command, function, cooldown, not for all users	-- TODO , возможно кулдауны по ролям. Функция что-то возвращает при ошибке или отсутствии доступа
 CommandsTbl["!бан"] = {SetBan,0,true}	
 CommandsTbl["!добавить чат-триггер"] = {AddChatTrigger,0,true}	
@@ -1088,7 +1093,7 @@ CommandsTbl["!топ"] = {TopChatters,120}
 CommandsTbl["!роли"] = {GetRole,120}	
 CommandsTbl["!дата"] = {Date,120}	
 CommandsTbl["!канал"] = {CurChannel,0,true}	
-CommandsTbl["!приветственные сообщения"] = {ShowJoiningMessages,120}	
+CommandsTbl["!приветственные сообщения"] = {ShowJoiningMessages,0,true}	
 CommandsTbl["!добавить приветственное сообщение"] = {AddJoiningMessage,0,true}
 CommandsTbl["!удалить приветственное сообщение"] = {RemoveJoiningMessages,0,true}
 CommandsTbl["!чекранг"] = {CheckRank,30} --TODO
@@ -1108,6 +1113,7 @@ CommandsTbl["!канал приветственных сообщений"] = {Jo
 CommandsTbl["!канал для общения с ботом"] = {SetBotChannel,0,true}
 CommandsTbl["!ответить"] = {Reply,30} --TODO
 CommandsTbl["!удалить сообщения"] = {Purge,0,true} --TODO
+CommandsTbl["!рестарт"] = {Restart,0,true}
 --CommandsTbl["!сетранг2"] = {SetRank2,0,{"461651884906643457"}}
 
 local CommandUsed = {}	-- command, user, whenUsed
@@ -1426,10 +1432,11 @@ Client:on('memberJoin', function(member)
 	if not channel then return end
 	if not WebServerIP and channel.guild then WebServerIP = WebServerIPs[channel.guild.id] end
 	local msg = "Тут типо рандомное приветственное сообщение."
-	local JoiningMessagesN = TableCount(JoiningMessages)
+	if not JoiningMessages[member.guild.id] then Send(channel,msg) return end
+	local JoiningMessagesN = TableCount(JoiningMessages[member.guild.id])
 	local user = GetUserMentionString(member.user)
 	if JoiningMessagesN > 0 then
-		msg = JoiningMessages[math.random(1,JoiningMessagesN)]
+		msg = JoiningMessages[member.guild.id][math.random(1,JoiningMessagesN)]
 		while msg:find("@user") do
 			msg = string.gsub(msg,"@user",user)
 		end
