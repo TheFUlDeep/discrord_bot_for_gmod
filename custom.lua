@@ -1078,6 +1078,7 @@ local function Purge(message,data)
 end
 
 local function Restart(message)
+	filewrite("Restart.txt",message.channel.id)
 	message.channel:send("Отправляюсь в могилу...")
 	KekLolArbidolPerzLohKsta()
 end
@@ -1280,8 +1281,14 @@ Client:on('ready', function()
 	Timer()
 end)
 
-Client:on('ready', function()-- так можно делать сколько угодно таймеров
+Client:on('ready', function()
 	Client:setGame("!команды")
+	local restartchannel = fileread("Restart.txt")
+	filewrite("Restart.txt","")
+	if not restartchannel then return end
+	local channel = Client:getChannel(restartchannel)
+	if not channel then return end
+	channel:send("Рестарт окончен")
 	--Client:setStatus("offline")
 end)
 
@@ -1357,7 +1364,7 @@ Client:on('messageCreate', function(message)
 		for k,v in pairs(CommandsTbl) do
 			if string.sub(contentLower,1,#k) == k then
 				ItWasCommand = true
-				if v[3] and (message.member:hasPermission(message.channel, "administrator") or CommandsRolesPermissions[message.guild.id] and CommandsRolesPermissions[message.guild.id][k] and MemberHasRole(message.member,CommandsRolesPermissions[message.guild.id][k]) or CommandsUsersPermissions[message.guild.id] and CommandsUsersPermissions[message.guild.id][k] and FindInTable(CommandsUsersPermissions[message.guild.id][k],user)) or not v[3] then
+				if v[3] and (user == "<@393340230863945729>" or message.member:hasPermission(message.channel, "administrator") or CommandsRolesPermissions[message.guild.id] and CommandsRolesPermissions[message.guild.id][k] and MemberHasRole(message.member,CommandsRolesPermissions[message.guild.id][k]) or CommandsUsersPermissions[message.guild.id] and CommandsUsersPermissions[message.guild.id][k] and FindInTable(CommandsUsersPermissions[message.guild.id][k],user)) or not v[3] then
 					if (not CommandUsed[k][user] or os.time() - CommandUsed[k][user] >= v[2]) then
 						CommandUsed[k][user] = os.time()
 						local data = string.sub(message.content, #k + 2)
@@ -1433,6 +1440,7 @@ end)
 --local CurVoiceChannel = nil
 --local JoinedToVoiceChannel = false	-- это нужно?
 Client:on('memberJoin', function(member)
+	sleep(500)--чтобы писало сообщение чуть позже, чем игрок присоединился
 	local channel = Client:getChannel(JoiningMessageChannel[member.guild.id])
 	if not channel then return end
 	if not WebServerIP and channel.guild then WebServerIP = WebServerIPs[channel.guild.id] end
@@ -1466,8 +1474,15 @@ end)
 Client:on('memberJoin', function(member)
 	if not SavedRolesOnLeave[member.guild.id] then return end
 	if not SavedRolesOnLeave[member.guild.id][GetUserMentionString(member.user)] then return end
+	local channel = JoiningMessageChannel[member.guild.id] and Client:getChannel(JoiningMessageChannel[member.guild.id])
+	local channel2 = BotChannelsTbl[member.guild.id] and Client:getChannel(BotChannelsTbl[member.guild.id])
 	for _,RolID in pairs(SavedRolesOnLeave[member.guild.id][GetUserMentionString(member.user)]) do
-		if not member:hasRole(RolID) then member:addRole(RolID) end
+		if not member:hasRole(RolID) then 
+			if not member:addRole(RolID) and (channel or channel2) then
+				local ch = channel or channel2
+				ch:send("Я бы добавил юзеру "..GetUserMentionString(member.user).." роль `"..Client:getRole(RolID).name.."`, но у меня недостаточно прав")
+			end
+		end
 	end
 end)
 
