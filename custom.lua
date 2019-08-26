@@ -1082,6 +1082,7 @@ local function Restart(message)
 	KekLolArbidolPerzLohKsta()
 end
 
+
 CommandsTbl["!стата"] = {GetStat,120}	-- command, function, cooldown, not for all users	-- TODO , возможно кулдауны по ролям. Функция что-то возвращает при ошибке или отсутствии доступа
 CommandsTbl["!бан"] = {SetBan,0,true}	
 CommandsTbl["!добавить чат-триггер"] = {AddChatTrigger,0,true}	
@@ -1442,6 +1443,28 @@ Client:on('memberJoin', function(member)
 		end
 	end
 	Send(channel,msg)
+end)
+
+local SavedRolesOnLeave = fileread("SavedRolesOnLeave.txt") and json.decode(fileread("SavedRolesOnLeave.txt")) or {}
+
+
+Client:on('memberLeave', function(member)
+	if not SavedRolesOnLeave[member.guild.id] then SavedRolesOnLeave[member.guild.id] = {} end
+	local roles = member.roles:toArray()
+	local roles1 = {}
+	for _,role in pairs(roles) do
+		table.insert(roles1,1,role.id)
+	end
+	SavedRolesOnLeave[member.guild.id][GetUserMentionString(member.user)] = roles1
+	filewrite("SavedRolesOnLeave.txt",json.encode(SavedRolesOnLeave))
+end)
+
+Client:on('memberJoin', function(member)
+	if not SavedRolesOnLeave[member.guild.id] then return end
+	if not SavedRolesOnLeave[member.guild.id][GetUserMentionString(member.user)] then return end
+	for _,RolID in pairs(SavedRolesOnLeave[member.guild.id][GetUserMentionString(member.user)]) do
+		if not member:hasRole(RolID) then member:addRole(RolID) end
+	end
 end)
 
 Client:on('voiceChannelJoin', function(member,channel)
