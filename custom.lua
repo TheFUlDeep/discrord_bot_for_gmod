@@ -1082,6 +1082,9 @@ local function Restart(message)
 	KekLolArbidolPerzLohKsta()
 end
 
+local function SelfKick(message,data)
+	message.member:kick("самокик")
+end
 
 CommandsTbl["!стата"] = {GetStat,120}	-- command, function, cooldown, not for all users	-- TODO , возможно кулдауны по ролям. Функция что-то возвращает при ошибке или отсутствии доступа
 CommandsTbl["!бан"] = {SetBan,0,true}	
@@ -1115,6 +1118,7 @@ CommandsTbl["!канал для общения с ботом"] = {SetBotChannel,
 CommandsTbl["!ответить"] = {Reply,30} --TODO
 CommandsTbl["!удалить сообщения"] = {Purge,0,true} --TODO
 CommandsTbl["!рестарт"] = {Restart,0,true}
+CommandsTbl["!самокик"] = {SelfKick,0}
 --CommandsTbl["!сетранг2"] = {SetRank2,0,{"461651884906643457"}}
 
 local CommandUsed = {}	-- command, user, whenUsed
