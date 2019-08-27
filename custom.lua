@@ -87,9 +87,14 @@ TODO для подтверждения стима. В игре человек в
 при введении правильного чекретного кода в локальную базу сохраняется mentionString и стимайди юзера
 ]]
 --TODO синхра чатов
+--TODO странно работает с эмоджи. Как для чат-триггеров, так и для реакций-чат-триггеров
 --TODO чат-триггеры реакции для определенных каналов
+--TODO чат-триггеры реакции для определенных ролей
+--TODO чат-триггеры реакции для определенных юзеров
 --TODO Purge
 --TODO триггеры для определенных каналов
+--TODO триггеры для определенных юзеров
+--TODO триггеры для определенных ролей
 --TODO пермишны не на целый сервер, а на определенный канал
 --TODO !ответить
 --TODO коины. +за удержание в топе, -за удаление сообщений
@@ -541,8 +546,12 @@ local function ConvertDataToTwoArgs(data)
 	data = string.sub(data, End + 2)
 	local arg2
 	if string.sub(data,1,2) ~= "[[" then arg2 = nil end
-	if not string.sub(data,4):find("]]") then arg2 = nil end
-	local arg2 = string.sub(data,3,-3)
+	local End2 = string.sub(data,4):find("]]")
+	if not End2 then 
+		arg2 = nil 
+	else
+		arg2 = string.sub(data,3,End2-1)
+	end
 	
 	if arg2 == "" then arg2 = nil end
 	if arg1 == "" then arg1 = nil end
@@ -1081,7 +1090,7 @@ local function Purge(message,data)
 	message:delete()]]
 end
 
-local creator = fileread("creator.txt")
+local creator = fileread("creator.txt") or ""
 
 local function Restart(message)
 	if not creator or message.author.id ~= creator then message.channel:send("Перезапускать бота может только его создатель.") return end
@@ -1119,7 +1128,7 @@ local function AddChatTriggerReaction(message,data)
 	for _,emoji in pairs(emojis) do
 		if not ChatTriggerReactions[message.guild.id] then ChatTriggerReactions[message.guild.id] = {} end
 		if not ChatTriggerReactions[message.guild.id][arg1] then ChatTriggerReactions[message.guild.id][arg1] = {} end
-		if not FindInTable(ChatTriggerReactions[message.guild.id][arg1], emoji.id) then
+		if not FindInTable(ChatTriggerReactions[message.guild.id][arg1], emoji.id) and bigrustosmall(arg2):find(bigrustosmall(emoji.name),nil,true) then
 			table.insert(ChatTriggerReactions[message.guild.id][arg1],1,emoji.id)
 			added = true
 		end
@@ -1150,7 +1159,7 @@ local function RemoveChatTriggerReaction(message,data)
 	local removed
 	for _,emoji in pairs(emojis) do
 		local Found = FindInTable(ChatTriggerReactions[message.guild.id][arg1], emoji.id)
-		if Found then 
+		if Found and bigrustosmall(arg2):find(bigrustosmall(emoji.name),nil,true) then 
 			table.remove(ChatTriggerReactions[message.guild.id][arg1],Found)
 			removed = true
 		end
@@ -1459,7 +1468,7 @@ Client:on('messageCreate', function(message)
 		for k,v in pairs(CommandsTbl) do
 			if string.sub(contentLower,1,#k) == k then
 				ItWasCommand = true
-				if v[3] and (user == "<@393340230863945729>" or message.member:hasPermission(message.channel, "administrator") or CommandsRolesPermissions[message.guild.id] and CommandsRolesPermissions[message.guild.id][k] and MemberHasRole(message.member,CommandsRolesPermissions[message.guild.id][k]) or CommandsUsersPermissions[message.guild.id] and CommandsUsersPermissions[message.guild.id][k] and FindInTable(CommandsUsersPermissions[message.guild.id][k],user)) or not v[3] then
+				if v[3] and (message.author.id == creator or message.member:hasPermission(message.channel, "administrator") or CommandsRolesPermissions[message.guild.id] and CommandsRolesPermissions[message.guild.id][k] and MemberHasRole(message.member,CommandsRolesPermissions[message.guild.id][k]) or CommandsUsersPermissions[message.guild.id] and CommandsUsersPermissions[message.guild.id][k] and FindInTable(CommandsUsersPermissions[message.guild.id][k],user)) or not v[3] then
 					if (not CommandUsed[k][user] or os.time() - CommandUsed[k][user] >= v[2]) then
 						CommandUsed[k][user] = os.time()
 						local data = string.sub(message.content, #k + 2)
