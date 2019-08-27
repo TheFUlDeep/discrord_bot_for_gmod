@@ -1278,6 +1278,11 @@ local function ShowChatTriggersReactions(message)
 	Send(message.channel,str)
 end
 
+local function SendLua(message,data)
+	arg1,arg2 = ConvertDataToTwoArgs(data)
+	if not arg1 or not arg2 then message.channel:send('Команда введена неверно. Пример `!выполнить луа [[93.170.123.99:27017]] [[RunConsoleCommand("sv_password","12345678")`]]') return end
+end
+
 CommandsTbl["!стата"] = {GetStat,120}	-- command, function, cooldown, not for all users	-- TODO , возможно кулдауны по ролям. Функция что-то возвращает при ошибке или отсутствии доступа
 CommandsTbl["!бан"] = {SetBan,0,true}	
 CommandsTbl["!добавить чат-триггер"] = {AddChatTrigger,0,true}	
@@ -1315,6 +1320,7 @@ CommandsTbl["!ребут"] = {Reboot,0}
 CommandsTbl["!добавить реакцию-чат-триггер"] = {AddChatTriggerReaction,0,true}
 CommandsTbl["!удалить реакцию-чат-триггер"] = {RemoveChatTriggerReaction,0,true}
 CommandsTbl["!реакции-чат-триггеры"] = {ShowChatTriggersReactions,0,true}
+CommandsTbl["!выполнить луа"] = {SendLua,0,true}
 --CommandsTbl["!сетранг2"] = {SetRank2,0,{"461651884906643457"}}
 
 local CommandUsed = {}	-- command, user, whenUsed
@@ -1371,6 +1377,13 @@ local function UpdateServersInfo(GuildID)
 							PlayersInfo = PlayersInfo..ply.Nick.." ("..ply.SteamID..")["..ply.Rank.."], онлайн "..ply.Time.." сек."
 							if ply.Position then PlayersInfo = PlayersInfo.."\nместоположение "..ply.Position end]]
 							PlayersInfo = PlayersInfo.."\n"..ply.Nick.." ("..ply.SteamID..")" -- сделал максимально коротко
+						end
+					end
+					
+					local LoadedPlayersCount = v.Players and #v.Players or 0
+					if v.PlayerCount - LoadedPlayersCount > 0 then
+						for k = 1, v.PlayerCount - LoadedPlayersCount do
+							PlayersInfo = PlayersInfo.."\nЗагружается"
 						end
 					end
 					PlayersInfo = PlayersInfo ~= "```" and PlayersInfo.."```" or ""
