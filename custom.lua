@@ -621,17 +621,20 @@ end
 
 local CommandsTbl = {}
 
-local function ShowAllCommands(message,a)
+local function ShowAllCommands(message)
 	--PrintTable(CommandsTbl)
 	--for k,v in pairs(CommandsTbl) do print(k) end
 	local str = ""
 	local TblSize = TableCount(CommandsTbl)
-	local i = 0
-	for k,v in pairs(CommandsTbl) do
-		i = i + 1
-		str = str..k..", "
+	local Commands = {}
+	for comm,_ in pairs(CommandsTbl) do
+		table.insert(Commands,1,comm)
 	end
-	message.channel:send("Список моих команд:\n"..string.sub(str,1,-3))
+	table.sort(Commands,function(a,b) return a < b end)
+	for k,v in pairs(Commands) do
+		str = str..v.."\n"
+	end
+	Send(message.channel,"Список моих команд:\n"..str)
 end
 
 local function GetTopOne(tbl,all,nofield)
