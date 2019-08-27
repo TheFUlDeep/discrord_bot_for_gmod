@@ -87,6 +87,7 @@ TODO для подтверждения стима. В игре человек в
 при введении правильного чекретного кода в локальную базу сохраняется mentionString и стимайди юзера
 ]]
 --TODO синхра чатов
+--TODO чат-триггеры реакции для определенных каналов
 --TODO Purge
 --TODO триггеры для определенных каналов
 --TODO пермишны не на целый сервер, а на определенный канал
@@ -943,7 +944,7 @@ local function AddAccessToCommandForUser(message,data)
 	if not CommandsUsersPermissions[message.guild.id] then CommandsUsersPermissions[message.guild.id] = {} end
 	if not CommandsUsersPermissions[message.guild.id][arg1] then CommandsUsersPermissions[message.guild.id][arg1] = {} end
 	if FindInTable(CommandsUsersPermissions[message.guild.id][arg1],arg2) then 
-		message.channel:send('Данная роль уже имеет доступ к этой команде') 
+		message.channel:send('Данный юзер уже имеет доступ к этой команде') 
 		return
 	else
 		table.insert(CommandsUsersPermissions[message.guild.id][arg1],1,arg2)
@@ -985,11 +986,11 @@ local function RemoveAccessToCommandForUser(message,data)
 	if not CommandsUsersPermissions[message.guild.id] or not CommandsUsersPermissions[message.guild.id][arg1] then message.channel:send("К этой команде и так не было доступа") return end
 	local Found = FindDeepInTable(CommandsUsersPermissions[message.guild.id][arg1],arg2)
 	if not Found then 
-		message.channel:send("Роль "..arg2.." не имеет доступа к этой команде") 
+		message.channel:send("Юзер "..arg2.." не имеет доступа к этой команде") 
 		return
 	else
 		CommandsUsersPermissions[message.guild.id][arg1][Found] = nil
-		message.channel:send("Роль "..arg2.." больше не имеет доступа к команде "..arg1) 
+		message.channel:send("Юзер "..arg2.." больше не имеет доступа к команде "..arg1) 
 		filewrite("CommandsUsersPermissions.txt",json.encode(CommandsUsersPermissions))
 	end
 end
@@ -1103,6 +1104,79 @@ local function Reboot(message)
 	os.execute("shutdown -r")
 end
 
+local ChatTriggerReactions = fileread("ChatTriggerReactions.txt") and json.decode(fileread("ChatTriggerReactions.txt")) or {}
+
+local function AddChatTriggerReaction(message,data)
+	local arg1,arg2 = ConvertDataToTwoArgs(data)
+	if not arg1 or not arg2 then 
+		message.channel:send('Команда введена некорректно. Пример: `!добавить реакцию-чат-триггер [[ягей]] [[:100: :roflanZdarova:]]`.')
+		return
+	end
+	
+	local added
+	
+	local emojis = message.mentionedEmojis:toArray()
+	for _,emoji in pairs(emojis) do
+		if not ChatTriggerReactions[message.guild.id] then ChatTriggerReactions[message.guild.id] = {} end
+		if not ChatTriggerReactions[message.guild.id][arg1] then ChatTriggerReactions[message.guild.id][arg1] = {} end
+		if not FindInTable(ChatTriggerReactions[message.guild.id][arg1], emoji.id) then
+			table.insert(ChatTriggerReactions[message.guild.id][arg1],1,emoji.id)
+			added = true
+		end
+	end
+	if added then
+		message.channel:send("Реакции-триггеры успешно добавлены")
+		filewrite("ChatTriggerReactions.txt",json.encode(ChatTriggerReactions))
+	end
+end
+
+local function RemoveChatTriggerReaction(message,data)
+	local arg1,arg2 = ConvertDataToTwoArgs(data)
+	if not arg1 then 
+		message.channel:send('Команда введена некорректно. Пример: `!удалить реакцию-чат-триггер [[ягей]] [[:100: :roflanZdarova:]]` или `!удалить реакцию-чат-триггер [[ягей]]`.')
+		return
+	end
+	
+	if not ChatTriggerReactions[message.guild.id] or not ChatTriggerReactions[message.guild.id][arg1] then return end
+	
+	if not arg2 then
+		ChatTriggerReactions[message.guild.id][arg1] = nil
+		filewrite("ChatTriggerReactions.txt",json.encode(ChatTriggerReactions))
+		message.channel:send("Реакции-триггеры успешно удалены")
+		return
+	end
+	
+	local emojis = message.mentionedEmojis:toArray()
+	local removed
+	for _,emoji in pairs(emojis) do
+		local Found = FindInTable(ChatTriggerReactions[message.guild.id][arg1], emoji.id)
+		if Found then 
+			table.remove(ChatTriggerReactions[message.guild.id][arg1],Found)
+			removed = true
+		end
+	end
+	if removed then 
+		filewrite("ChatTriggerReactions.txt",json.encode(ChatTriggerReactions))
+		message.channel:send("Реакции-триггеры успешно удалены")
+	end
+end
+
+local function ShowChatTriggersReactions(message)
+	local str = ""
+	if ChatTriggerReactions[message.guild.id] then
+		for k,v in pairs(ChatTriggerReactions[message.guild.id]) do
+			str = str..'Триггеры на "'..k..'": '
+			
+			local emojis = ""
+			for k1,v1 in pairs(v) do
+				emojis = emojis == "" and ":"..Client:getEmoji(v1).name..":" or emojis..", :"..Client:getEmoji(v1).name..":"
+			end
+			str = str..json.encode(emojis).."\n"
+		end
+	end
+	Send(message.channel,str)
+end
+
 CommandsTbl["!стата"] = {GetStat,120}	-- command, function, cooldown, not for all users	-- TODO , возможно кулдауны по ролям. Функция что-то возвращает при ошибке или отсутствии доступа
 CommandsTbl["!бан"] = {SetBan,0,true}	
 CommandsTbl["!добавить чат-триггер"] = {AddChatTrigger,0,true}	
@@ -1137,6 +1211,9 @@ CommandsTbl["!удалить сообщения"] = {Purge,0,true} --TODO
 CommandsTbl["!перезапуск"] = {Restart,0,true}
 CommandsTbl["!самокик"] = {SelfKick,0}
 CommandsTbl["!ребут"] = {Reboot,0}
+CommandsTbl["!добавить реакцию-чат-триггер"] = {AddChatTriggerReaction,0,true}
+CommandsTbl["!удалить реакцию-чат-триггер"] = {RemoveChatTriggerReaction,0,true}
+CommandsTbl["!реакции-чат-триггеры"] = {ShowChatTriggersReactions,0,true}
 --CommandsTbl["!сетранг2"] = {SetRank2,0,{"461651884906643457"}}
 
 local CommandUsed = {}	-- command, user, whenUsed
@@ -1418,6 +1495,16 @@ Client:on('messageCreate', function(message)
 			if contentLower:find(k) then 
 				local TblSize = TableCount(v)
 				message.channel:send(v[math.random(1,TblSize)])
+			end
+		end
+	end
+	
+	if ChatTriggerReactions[message.guild.id] then
+		for k,v in pairs(ChatTriggerReactions[message.guild.id]) do
+			if contentLower:find(k) then
+				for k1,v1 in pairs(v) do
+					message:addReaction(Client:getEmoji(v1))
+				end
 			end
 		end
 	end
