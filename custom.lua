@@ -39,6 +39,18 @@ local function bigrustosmall(str)
 	return string.lower(str)
 end
 
+local function istable(tbl)
+	if tbl and type(tbl) == "table" then return true end
+end
+
+local function isstring(str)
+	if str and type(str) == "str" then return true end
+end
+
+local function isnumber(num)
+	if num and type(num) == "number" then return true end
+end
+
 local function stringfind(where, what, lowerr, startpos, endpos)
 	local Exeption = false
 	if not where or not what then --[[print("[STRINGFIND EXEPTION] cant find required arguments")]] return false end
@@ -534,13 +546,12 @@ end
 table.HasValue = FindInTable
 
 table.HasValues = function(tbl,value)
-	local i = 0
 	local Keys = {}
 	for k,v in pairs(tbl) do
-		if v == value then Keys[#Keys+1] = k i = i + 1 end
+		if v == value then Keys[#Keys+1] = k end
 	end
 	
-	return Keys,i
+	return Keys
 end
 
 local function ConvertDataToTwoArgs(data)
@@ -556,7 +567,7 @@ local function ConvertDataToTwoArgs(data)
 	if not End2 then 
 		arg2 = nil 
 	else
-		arg2 = string.sub(data,3,End2-1)
+		arg2 = string.sub(data,3,End2+2)
 	end
 	
 	if arg2 == "" then arg2 = nil end
@@ -919,19 +930,34 @@ local function Server(message,data)
 	message.channel:send(message.guild.id)
 end
 
+local function GetRoleByMentionString(guild,str)
+	str = str:gsub("&","")
+	str = str:gsub("@","")
+	str = str:gsub("!","")
+	str = str:gsub("<","")
+	str = str:gsub(">","")
+	return guild:getRole(str)
+end
+
 local CommandsRolesPermissions = fileread("CommandsRolesPermissions.txt") and json.decode(fileread("CommandsRolesPermissions.txt")) or {}
 
 local CommandsUsersPermissions = fileread("CommandsUsersPermissions.txt") and json.decode(fileread("CommandsUsersPermissions.txt")) or {}
 
 local function AddAccessToCommandForRole(message,data)
+	local MentionedRoles = message.mentionedRoles:toArray()
+	if type(MentionedRoles) == "table" and table.Count(MentionedRoles) < 1 or type(MentionedRoles) ~= "table" then return end
 	local arg1,arg2 = ConvertDataToTwoArgs(data)
 	if not arg1 or not arg2 then 
 		message.channel:send('Команда введена некорректно. Пример: `!дать доступ к команде для роли [[!добавить чат-триггер]] [[594611225762070541]]`.')
 		return
 	end
 	
+	local Role = GetRoleByMentionString(message.guild,arg2)
+	arg2 = Role and Role.id
+
+	
 	if not CommandsTbl[arg1] then message.channel:send('Команда не найдена') return end
-	if not message.guild:getRole(arg2) then message.channel:send('Роль не найдена') return end
+	if not arg2 then message.channel:send('Роль не найдена') return end
 	
 	if not CommandsRolesPermissions[message.guild.id] then CommandsRolesPermissions[message.guild.id] = {} end
 	if not CommandsRolesPermissions[message.guild.id][arg1] then CommandsRolesPermissions[message.guild.id][arg1] = {} end
@@ -940,7 +966,7 @@ local function AddAccessToCommandForRole(message,data)
 		return
 	else
 		table.insert(CommandsRolesPermissions[message.guild.id][arg1],1,arg2)
-		message.channel:send('Роли '..arg2.." выдан доступ к команде "..arg1) 
+		message.channel:send('Роли '..Role.mentionString.." выдан доступ к команде "..arg1) 
 		filewrite("CommandsRolesPermissions.txt",json.encode(CommandsRolesPermissions))
 	end
 end
@@ -975,16 +1001,19 @@ local function RemoveAccessToCommandForRole(message,data)
 		return
 	end
 	
+	local Role = GetRoleByMentionString(message.guild,arg2)
+	arg2 = Role and Role.id
+	
 	if not CommandsTbl[arg1] then message.channel:send('Команда не найдена') return end
-	if not message.guild:getRole(arg2) then message.channel:send('Роль не найдена') return end
+	if not arg2 then message.channel:send('Роль не найдена') return end
 	if not CommandsRolesPermissions[message.guild.id] or not CommandsRolesPermissions[message.guild.id][arg1] then message.channel:send("К этой команде и так не было доступа") return end
-	local Found = FindDeepInTable(CommandsRolesPermissions[message.guild.id][arg1],arg2)
+	local Found = table.HasValue(CommandsRolesPermissions[message.guild.id][arg1],arg2)
 	if not Found then 
-		message.channel:send("Роль "..arg2.." не имеет доступа к этой команде") 
+		message.channel:send("Роль "..Role.mentionString.." не имеет доступа к этой команде") 
 		return
 	else
 		CommandsRolesPermissions[message.guild.id][arg1][Found] = nil
-		message.channel:send("Роль "..arg2.." больше не имеет доступа к команде "..arg1) 
+		message.channel:send("Роль "..Role.mentionString.." больше не имеет доступа к команде "..arg1) 
 		filewrite("CommandsRolesPermissions.txt",json.encode(CommandsRolesPermissions))
 	end
 end
@@ -999,7 +1028,7 @@ local function RemoveAccessToCommandForUser(message,data)
 	if not CommandsTbl[arg1] then message.channel:send('Команда не найдена') return end
 	if not GetMemberByMentionString(message,arg2) then message.channel:send('Игрок не найден') return end
 	if not CommandsUsersPermissions[message.guild.id] or not CommandsUsersPermissions[message.guild.id][arg1] then message.channel:send("К этой команде и так не было доступа") return end
-	local Found = FindDeepInTable(CommandsUsersPermissions[message.guild.id][arg1],arg2)
+	local Found = table.HasValue(CommandsUsersPermissions[message.guild.id][arg1],arg2)
 	if not Found then 
 		message.channel:send("Юзер "..arg2.." не имеет доступа к этой команде") 
 		return
@@ -1010,22 +1039,79 @@ local function RemoveAccessToCommandForUser(message,data)
 	end
 end
 
+local function MemberHasRole(member,tbl)
+	for k,v in pairs(tbl) do
+		if member:hasRole(v) then return true end
+	end
+	return false
+end
+
+local function MemberHasAccessToCommand(member,command)
+	if CommandsRolesPermissions[member.guild.id] and CommandsRolesPermissions[member.guild.id][command] and MemberHasRole(member,CommandsRolesPermissions[member.guild.id][command]) 
+	or CommandsUsersPermissions[member.guild.id] and CommandsUsersPermissions[member.guild.id][command] and table.HasValue(CommandsUsersPermissions[member.guild.id][command],GetUserMentionString(member.user)) then
+		return true
+	end
+end
+
+local function RoleHasAccessToCommand(guildID,roleID,command)
+	if CommandsRolesPermissions[guildID] and CommandsRolesPermissions[guildID][command] and table.HasValue(CommandsRolesPermissions[guildID][command],roleID) then return true end
+end
+
+local function DetectRoleOrMemberInData(message,data)
+	local member = GetMemberByMentionString(message,data)
+	local role = GetRoleByMentionString(message.guild,data)
+	if member then return member,1 end
+	if role then return role,2 end
+end
+
+local function ConvertRolseIDsToMentions(message,tbl)
+	local str = ""
+	for _,roleid in pairs(tbl) do
+		str = str == "" and message.guild:getRole(roleid).mentionString or str..", "..message.guild:getRole(roleid).mentionString
+	end
+	return str
+end
+
 local function GetAccesses(message,data)
 	local str = ""
-	for comm,v in pairs(CommandsTbl) do
-		local users
-		local roles
-		if CommandsUsersPermissions[message.guild.id] and CommandsUsersPermissions[message.guild.id][comm] then
-			users = json.encode(CommandsUsersPermissions[message.guild.id][comm])
+	if not CommandsUsersPermissions[message.guild.id] and not CommandsRolesPermissions[message.guild.id] then return end
+	if message.author.id == creator or message.member:hasPermission(message.channel, "administrator") and not data:find("%d") then
+		for comm,_ in pairs(CommandsTbl) do
+			local users
+			local roles
+			if CommandsUsersPermissions[message.guild.id] and CommandsUsersPermissions[message.guild.id][comm] then
+				users = json.encode(CommandsUsersPermissions[message.guild.id][comm])
+			end
+			if CommandsRolesPermissions[message.guild.id] and CommandsRolesPermissions[message.guild.id][comm] then
+				roles = ConvertRolseIDsToMentions(message,CommandsRolesPermissions[message.guild.id][comm])
+			end
+			if users or roles then
+				if not users then users = "" end
+				if not roles then roles = "" end
+				str = str ~= "" and str.."\n\n" or str
+				str = str.."Команда `"..comm.."`: "..users.." "..roles
+			end
 		end
-		if CommandsRolesPermissions[message.guild.id] and CommandsRolesPermissions[message.guild.id][comm] then
-			roles = json.encode(CommandsRolesPermissions[message.guild.id][comm])
+	else
+		local accesses = {}
+		local RoleOrMember,typ = DetectRoleOrMemberInData(message,data)
+		if not RoleOrMember then return end
+		if typ == 1 then
+			for comm,_ in pairs(CommandsTbl) do
+				if MemberHasAccessToCommand(RoleOrMember,comm) and not table.HasValue(accesses,comm) then
+					accesses[#accesses+1] = comm
+				end
+			end
+		else
+			for comm,_ in pairs(CommandsTbl) do
+				if RoleHasAccessToCommand(message.guild.id,RoleOrMember.id,comm) and not table.HasValue(accesses,comm) then
+					accesses[#accesses+1] = comm
+				end
+			end
 		end
-		if users or roles then
-			if not users then users = "" end
-			if not roles then roles = "" end
-			str = str ~= "" and str.."\n\n" or str
-			str = str.."Команда `"..comm.."`: "..users.." "..roles
+		
+		for _,comm in pairs(accesses) do
+			str = str == "" and (typ == 1 and "Игрок" or "Роль").." имеет доступ к командам:\n"..comm.."\n" or str..comm.."\n"
 		end
 	end
 	if str ~= "" then Send(message.channel,str) end
@@ -1236,13 +1322,6 @@ for k,v in pairs(CommandsTbl) do
 	CommandUsed[k] = {}
 end
 
-local function MemberHasRole(member,tbl)
-	for k,v in pairs(tbl) do
-		if member:hasRole(v) then return true end
-	end
-	return false
-end
-
 
 --обновление информации о серверах
 local ServerNames = {}
@@ -1394,7 +1473,15 @@ Client:on('ready', function()
 	Client:setGame("!команды")
 	local restartchannel = fileread("Restart.txt")
 	filewrite("Restart.txt","")
-	if not restartchannel then return end
+	if not restartchannel or restartchannel == "" then 
+		local LastMsg = fileread("O:\\LastMsgAll.txt")
+		if LastMsg then
+			Channel = Client:getChannel(LastMsg)
+			if not Channel then return end
+			Channel:send("я упал, но встал")
+		end
+		return 
+	end
 	local channel = Client:getChannel(restartchannel)
 	if not channel then return end
 	channel:send("Рестарт окончен")
@@ -1411,6 +1498,8 @@ end)
 --local CallCount = 0
 Client:on('messageCreate', function(message)
 	if Rebooting then return end
+	LastMsgAll = message.channel.id
+	filewrite("O:\\LastMsgAll.txt",LastMsgAll)
 	--CallCount = CallCount + 1
 	if not message.guild then return end
 	
