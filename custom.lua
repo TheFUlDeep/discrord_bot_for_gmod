@@ -1077,7 +1077,10 @@ local function Purge(message,data)
 	message:delete()]]
 end
 
+local creator = fileread("creator.txt")
+
 local function Restart(message)
+	if not creator or message.author.id ~= creator then message.channel:send("Перезапускать бота может только его создатель.") return end
 	filewrite("Restart.txt",message.channel.id)
 	message.channel:send("Отправляюсь в могилу...")
 	KekLolArbidolPerzLohKsta()
@@ -1085,6 +1088,16 @@ end
 
 local function SelfKick(message,data)
 	message.member:kick("самокик")
+end
+
+local Rebooting
+
+local function Reboot(message)
+	if not creator or message.author.id ~= creator then message.channel:send("Перезапускать бота может только его создатель.") return end
+	Rebooting = true
+	message.channel:send("Полный рестарт займет несколько минут")
+	filewrite("Restart.txt",message.channel.id)
+	os.execute("shutdown -r")
 end
 
 CommandsTbl["!стата"] = {GetStat,120}	-- command, function, cooldown, not for all users	-- TODO , возможно кулдауны по ролям. Функция что-то возвращает при ошибке или отсутствии доступа
@@ -1118,8 +1131,9 @@ CommandsTbl["!канал приветственных сообщений"] = {Jo
 CommandsTbl["!канал для общения с ботом"] = {SetBotChannel,0,true}
 CommandsTbl["!ответить"] = {Reply,30} --TODO
 CommandsTbl["!удалить сообщения"] = {Purge,0,true} --TODO
-CommandsTbl["!рестарт"] = {Restart,0,true}
+CommandsTbl["!перезапуск"] = {Restart,0,true}
 CommandsTbl["!самокик"] = {SelfKick,0}
+CommandsTbl["!ребут"] = {Reboot,0}
 --CommandsTbl["!сетранг2"] = {SetRank2,0,{"461651884906643457"}}
 
 local CommandUsed = {}	-- command, user, whenUsed
@@ -1301,6 +1315,7 @@ end)
 	
 --local CallCount = 0
 Client:on('messageCreate', function(message)
+	if Rebooting then return end
 	--CallCount = CallCount + 1
 	if not message.guild then return end
 	
