@@ -31,22 +31,12 @@ end
 
 local BIGRUS = {"А","Б","В","Г","Д","Е","Ё","Ж","З","И","Й","К","Л","М","Н","О","П","Р","С","Т","У","Ф","Х","Ц","Ч","Ш","Щ","Ъ","Ы","Ь","Э","Ю","Я"}
 local smallrus = {"а","б","в","г","д","е","ё","ж","з","и","й","к","л","м","н","о","п","р","с","т","у","ф","х","ц","ч","ш","щ","ъ","ы","ь","э","ю","я"}
-local BIG_to_small = {}
-for k, v in next, BIGRUS do
-   
-	BIG_to_small[v] = smallrus[k]
-   
-end
+
 local function bigrustosmall(str)
-   
-	local strlow = ""
-   
-	for v in string.gmatch(str, "[%z\x01-\x7F\xC2-\xF4][\x80-\xBF]*") do
-		strlow = strlow .. (BIG_to_small[v] or v)
+	for i,letter in pairs(BIGRUS) do
+		str = str:gsub(BIGRUS[i],smallrus[i])
 	end
-   
-	return string.lower(strlow) --жтобы англ буквы тоже занижалис
-   
+	return string.lower(str)
 end
 
 local function stringfind(where, what, lowerr, startpos, endpos)
@@ -141,6 +131,8 @@ local function TableCount(tbl)
 	end
 	return i
 end
+
+table.Count = TableCount
 
 local WatNeedToSend = {}
 
@@ -519,12 +511,14 @@ local function Ban(message,b)
 	message.channel:send("А может ты?")
 end
 
-local function FindDeepInTable(tbl,value)
+local function FindDeepInTable(tbl,value,iter,localiter)
+	if not localiter then localiter = 1 end
+	if iter and localiter > iter then return false end
 	for k,v in pairs(tbl) do
 		if type(v) ~= "table" then 
 			if v == value then return true end
 		else
-			return FindDeepInTable(v,value)
+			return FindDeepInTable(v,value,iter,localiter+1)
 		end
 	end
 	return false
@@ -535,6 +529,18 @@ local function FindInTable(tbl,value)
 		if v == value then return k end
 	end
 	return false
+end
+
+table.HasValue = FindInTable
+
+table.HasValues = function(tbl,value)
+	local i = 0
+	local Keys = {}
+	for k,v in pairs(tbl) do
+		if v == value then Keys[#Keys+1] = k i = i + 1 end
+	end
+	
+	return Keys,i
 end
 
 local function ConvertDataToTwoArgs(data)
