@@ -1383,7 +1383,7 @@ local function UpdateServersInfo(GuildID)
 					local LoadedPlayersCount = v.Players and #v.Players or 0
 					if v.PlayerCount - LoadedPlayersCount > 0 then
 						for k = 1, v.PlayerCount - LoadedPlayersCount do
-							PlayersInfo = PlayersInfo.."\nЗагружается"
+							PlayersInfo = PlayersInfo.."\nЗагружается..."
 						end
 					end
 					PlayersInfo = PlayersInfo ~= "```" and PlayersInfo.."```" or ""
@@ -1403,20 +1403,22 @@ local function UpdateServersInfo(GuildID)
 						fields = {
 							{name = "Сервер: ", value = v.ServerName, inline = true},
 							{name = "Карта: ", value = v.Map, inline = true},
-							{name = "Игроки: ", value = v.PlayerCount.."/"..v.MaxPlayers..PlayersInfo, inline = false},
+							{name = "Игроки: ", value = v.PlayerCount.."/"..v.MaxPlayers..PlayersInfo, inline = true},
+							{name = "Вагоны: ", value = (v.Wagons or 0).."/"..(v.MaxWagons or 0), inline = false},
 							{name = "IP: ", value = ip, inline = true},
-							{name = "Ссылка на подключение:: ", value = "steam://connect/"..ip, inline = true},
+							{name = "Ссылка на подключение: ", value = "steam://connect/"..ip, inline = true},
 						},
 						--[[provider = {			--хз шоета
 							url = "https://www.youtube.com/feed/subscriptions",
 							name = "asd"
 						},]]
 						--description = "*ссылка* на подключение\nsteam://connect/"..ip, --маленький текст, но больше, чем footer
-						color = discordia.Color("#FFFFFF").value -- черный цвет
+						color = 65280
 					}
 				else
 					Message:setEmbed{
 						title = "**Сервер:** "..(ServerNames[Channel.guild.id] and ServerNames[Channel.guild.id][i] or i).."\n\n**"..v.."**",
+						color = 16711680,
 						image = {
 							url = "https://st03.kakprosto.ru/tumb/680/images/article/2016/4/28/236745_5722143711f165722143711f4e.jpeg"
 						}
