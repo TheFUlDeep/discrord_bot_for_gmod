@@ -1119,7 +1119,7 @@ end
 
 
 local function SetWebServerIp(message,data)
-	if not isstring(data) or not data:find("%a") or not data:find("%d") then return end
+	if not isstring(data) or not data:find("%a") and not data:find("%d") then return end
 	WebServerIP = data
 	WebServerIPs[message.guild.id] = data
 	filewrite("webserverips.txt",json.encode(WebServerIPs))
