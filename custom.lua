@@ -89,6 +89,7 @@ TODO для подтверждения стима. В игре человек в
 при введении правильного чекретного кода в локальную базу сохраняется mentionString и стимайди юзера
 ]]
 --TODO синхра чатов
+--TODO словарь метротерминов
 --TODO странно работает с эмоджи. Как для чат-триггеров, так и для реакций-чат-триггеров
 --TODO чат-триггеры реакции для определенных каналов
 --TODO чат-триггеры реакции для определенных ролей
@@ -1074,7 +1075,7 @@ end
 
 local function GetAccesses(message,data)
 	local str = ""
-	if not CommandsUsersPermissions[message.guild.id] and not CommandsRolesPermissions[message.guild.id] then return end
+	if not CommandsUsersPermissions[message.guild.id] and not CommandsRolesPermissions[message.guild.id] then message.channel:send("фывфыв") return end
 	if message.author.id == creator or message.member:hasPermission(message.channel, "administrator") and not data:find("%d") then
 		for comm,_ in pairs(CommandsTbl) do
 			local users
@@ -1095,7 +1096,7 @@ local function GetAccesses(message,data)
 	else
 		local accesses = {}
 		local RoleOrMember,typ = DetectRoleOrMemberInData(message,data)
-		if not RoleOrMember then return end
+		if not RoleOrMember then message.channel:send("Пусто") return end
 		if typ == 1 then
 			for comm,_ in pairs(CommandsTbl) do
 				if MemberHasAccessToCommand(RoleOrMember,comm) and not table.HasValue(accesses,comm) then
@@ -1114,12 +1115,12 @@ local function GetAccesses(message,data)
 			str = str == "" and (typ == 1 and "Игрок" or "Роль").." имеет доступ к командам:\n"..comm.."\n" or str..comm.."\n"
 		end
 	end
-	if str ~= "" then Send(message.channel,str) end
+	if str ~= "" then Send(message.channel,str) else message.channel:send("Пусто") end
 end
 
 
 local function SetWebServerIp(message,data)
-	if not isstring(data) or not data:find("%a") and not data:find("%d") then return end
+	--if not isstring(data) or not data:find("%a") and not data:find("%d") then return end
 	WebServerIP = data
 	WebServerIPs[message.guild.id] = data
 	filewrite("webserverips.txt",json.encode(WebServerIPs))
@@ -1709,6 +1710,8 @@ Client:on('memberJoin', function(member)
 			end
 		end
 	end
+	SavedRolesOnLeave[member.guild.id][GetUserMentionString(member.user)] = nil
+	filewrite("SavedRolesOnLeave.txt",json.encode(SavedRolesOnLeave))
 end)
 
 Client:on('voiceChannelJoin', function(member,channel)
