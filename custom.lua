@@ -88,6 +88,7 @@ TODO для подтверждения стима. В игре человек в
 С веб-сервера эту инфу берет бот и отправляет в дискорд человеку личное сообщение, прося ввести секретный код для подтверждения
 при введении правильного чекретного кода в локальную базу сохраняется mentionString и стимайди юзера
 ]]
+--TODO падает при смене карты
 --TODO синхра чатов
 --TODO словарь метротерминов
 --TODO странно работает с эмоджи. Как для чат-триггеров, так и для реакций-чат-триггеров
@@ -1364,7 +1365,7 @@ local function UpdateServersInfo(GuildID)
 			local Message = Channel:getMessage(messages[i])
 			if Message then
 				if Message.content ~= "" then Message:setContent("") end
-				if type(v) == "table" then
+				if type(v) == "table" and v.Map then
 					if not ServerNames[Channel.guild.id] then ServerNames[Channel.guild.id] = {} end
 					ServerNames[Channel.guild.id][i] = v.ServerName
 					local IconURL = v.PlayerCount == 0 and "https://images-ext-1.discordapp.net/external/DVrAzp7wY7c2P_dreWdW3Ai8Lj0wTEMB_ZuD28pMW98/%3Fwidth%3D858%26height%3D677/https/media.discordapp.net/attachments/502070663725449236/592392019620528132/3af2ae0dd9f712a5475117200c3f4ed8.png"
@@ -1417,12 +1418,26 @@ local function UpdateServersInfo(GuildID)
 						--description = "*ссылка* на подключение\nsteam://connect/"..ip, --маленький текст, но больше, чем footer
 						color = 65280
 					}
+				elseif istable(v) then
+					Message:setEmbed{
+						title = "**Сервер:** "..(ServerNames[Channel.guild.id] and ServerNames[Channel.guild.id][i] or i)..":\n"..v["0"],
+						color = 16776960,
+						image = {
+							url = "https://avatanplus.com/files/resources/mid/59a1a8d29591015e1f7b76b5.png"
+						},
+						footer = {		--маленький текст снизу
+							text = "\n\n\nАктуально на "..os.date("%H:%M:%S %d.%m.%Y",v.LastUpdate).." (МСК)"
+						}
+					}
 				else
 					Message:setEmbed{
 						title = "**Сервер:** "..(ServerNames[Channel.guild.id] and ServerNames[Channel.guild.id][i] or i).."\n\n**"..v.."**",
 						color = 16711680,
 						image = {
 							url = "https://st03.kakprosto.ru/tumb/680/images/article/2016/4/28/236745_5722143711f165722143711f4e.jpeg"
+						},
+						footer = {
+							text = "\n\n\nАктуально на "..os.date("%H:%M:%S %d.%m.%Y",os.time()).." (МСК)",
 						}
 					}
 				end
