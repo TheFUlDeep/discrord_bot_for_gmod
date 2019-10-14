@@ -831,7 +831,9 @@ local function TopChatters(message,a)
 			end
 			str = str.."Человек, написавший больше всего сообщений не подряд:\n"
 			for k1,v1 in pairs(TopOneInChannelNotAll) do
-				str = str..v1[1].." - сообщений: "..v1[2].."\n"
+				if v1[1] and v1[2] then
+					str = str..v1[1].." - сообщений: "..v1[2].."\n"
+				end
 			end
 			
 			local TopOneInChannelMentions = mentionedUsers[message.guild.id] and mentionedUsers[message.guild.id][k] and GetTopOne(mentionedUsers[message.guild.id][k],nil,true) or {}
@@ -1532,6 +1534,8 @@ Client:on('messageCreate', function(message)
 	if Rebooting then return end
 	LastMsgAll = message.channel.id
 	filewrite("O:\\LastMsgAll.txt",LastMsgAll)
+	
+	if message.author.id == "514111678846074890" and message.content == "Мог и не вставать." then message.channel:send("Я не из тех, кто не падает, зато я из тех, кто поднимается.") end
 	--CallCount = CallCount + 1
 	if not message.guild then return end
 	
