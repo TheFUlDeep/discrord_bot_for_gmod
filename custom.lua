@@ -88,7 +88,9 @@ TODO для подтверждения стима. В игре человек в
 С веб-сервера эту инфу берет бот и отправляет в дискорд человеку личное сообщение, прося ввести секретный код для подтверждения
 при введении правильного чекретного кода в локальную базу сохраняется mentionString и стимайди юзера
 ]]
---TODO падает при смене карты
+--TODO игнорирование каналов
+--TODO система жалоб
+--TODO запретные слова
 --TODO синхра чатов
 --TODO словарь метротерминов
 --TODO странно работает с эмоджи. Как для чат-триггеров, так и для реакций-чат-триггеров
@@ -1197,7 +1199,8 @@ local function Restart(message)
 end
 
 local function SelfKick(message,data)
-	message.member:kick("самокик")
+	local res = message.member:kick("самокик")
+	if not res then message.channel:send("У меня недостаточно прав для этого.") end
 end
 
 local Rebooting
@@ -1357,6 +1360,15 @@ local function UpdateServersInfo(GuildID)
 		table.insert(ServerInfoMessages[GuildID].messages,1,Channel:send("serverinfo").id)
 		filewrite("ServerInfoMessages.txt",json.encode(ServerInfoMessages))
 	end
+
+	while TableCount(ServersInfo[Channel.guild.id]) < TableCount(ServerInfoMessages[GuildID].messages) do
+		for key,msgid in pairs(ServerInfoMessages[GuildID].messages) do
+			local msg = Channel:getMessage(msgid)
+			if msg then msg:delete() end
+			table.remove(ServerInfoMessages[GuildID].messages,key)
+		end
+		filewrite("ServerInfoMessages.txt",json.encode(ServerInfoMessages))
+	end
 	
 	messages = ServerInfoMessages[GuildID].messages
 	
@@ -1406,10 +1418,10 @@ local function UpdateServersInfo(GuildID)
 							--width = 100
 						},
 						fields = {
-							{name = "Сервер: ", value = v.ServerName, inline = true},
+							{name = "Сервер: ", value = v.ServerName, inline = false},
 							{name = "Карта: ", value = v.Map, inline = true},
-							{name = "Игроки: ", value = v.PlayerCount.."/"..v.MaxPlayers..PlayersInfo, inline = true},
-							{name = "Вагоны: ", value = (v.Wagons or 0).."/"..(v.MaxWagons or 0), inline = false},
+							{name = "Вагоны: ", value = (v.Wagons or 0).."/"..(v.MaxWagons or 0), inline = true},
+							{name = "Игроки: ", value = v.PlayerCount.."/"..v.MaxPlayers..PlayersInfo, inline = false},
 							{name = "IP: ", value = ip, inline = true},
 							{name = "Ссылка на подключение: ", value = "steam://connect/"..ip, inline = true},
 						},
