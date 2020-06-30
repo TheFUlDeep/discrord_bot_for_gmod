@@ -2,6 +2,11 @@
 --package.path = package.path..".\\lua_modules\\?\\init.lua;"
 --package.path = package.path..".\\lua_modules\\?.lua;"
 
+--local redisConnect = require('redis-client')
+--local websocketConnect = require('websocket-client')
+--print(redisConnect,websocketConnect)
+--if 1 then return end
+
 local discordia = require('discordia')
 local Client = discordia.Client{
 	cacheAllMembers = true,
@@ -154,8 +159,9 @@ local WatNeedToSend = {}
 
 local function CheckWatNeedToSend()
 	for k,v in pairs(WatNeedToSend) do
-		v[1]:send(v[2])
+		local arg1,arg2 = v[1],v[2]
 		WatNeedToSend[k] = nil
+		arg1:send(arg2)
 	end
 end
 
@@ -1480,7 +1486,7 @@ end)
 Client:on('ready', function()
 	local function Timer()
 		--print("Timer")
-		sleep(5 * 1000)
+		sleep(10 * 1000)
 		for k,v in pairs(ServerInfoMessages) do
 			UpdateServersInfo(k)
 		end
@@ -1516,10 +1522,15 @@ Client:on('ready', function()
 end)
 
 Client:on('ready', function()
+	--HTTPGET(ip,path,port,OnResponse,OnError)
+	print(_token)
+
+
 	Client:setGame("!команды")
 	local restartchannel = fileread("Restart.txt")
 	filewrite("Restart.txt","")
 	if not restartchannel or restartchannel == "" then 
+		if 1 then return end	--отключил "я упал но встал"
 		local LastMsg = fileread("O:\\LastMsgAll.txt")
 		if LastMsg then
 			Channel = Client:getChannel(LastMsg)
@@ -1745,7 +1756,7 @@ Client:on('memberJoin', function(member)
 	filewrite("SavedRolesOnLeave.txt",json.encode(SavedRolesOnLeave))
 end)
 
-Client:on('voiceChannelJoin', function(member,channel)
+--[[Client:on('voiceChannelJoin', function(member,channel)
 	--print(member)
 	--print(channel)
 	--print(CurVoiceChannel)
@@ -1756,7 +1767,7 @@ Client:on('voiceChannelJoin', function(member,channel)
 		--JoinedToVoiceChannel = true
 	--end
 	if not WebServerIP and channel.guild then WebServerIP = WebServerIPs[channel.guild.id] end
-end)
+end)]]
 
 --[[Client:on('typingStart', function(userid,channelId,timestamp)
 	local channel = Client:getChannel(channelId)
