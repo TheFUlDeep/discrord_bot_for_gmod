@@ -1788,4 +1788,14 @@ end)]]
 	--if CurVoiceChannel.channel.connectedMembers:count() < 2 then print("asd") end --and JoinedToVoiceChannel then CurVoiceChannel:close() JoinedToVoiceChannel = false end
 end)]]
 
+
+Client:on('start', function()
+
+	while #Client._guilds == 0 do sleep(1000) end
+
+	--do things
+end)
+
+Client:emit("start")
+
 Client:run(BotSettings.Token,{activity = "!команды"})
